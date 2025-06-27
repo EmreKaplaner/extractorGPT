@@ -1,0 +1,49 @@
+/* ExtractorGPT Simple Styles - No Blur Effects */
+
+/* Basic highlighting styles */
+.panda-highlight-collection-element {
+  outline: 2px solid #2196F3 !important;
+  background: rgba(33, 150, 243, 0.1) !important;
+  cursor: pointer !important;
+}
+
+.panda-extract-highlighted-item {
+  outline: 2px solid #FF9800 !important;
+  background: rgba(255, 152, 0, 0.1) !important;
+  cursor: pointer !important;
+}
+
+.panda-extract-cursor-move-overlay {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid #4CAF50;
+  background: rgba(76, 175, 80, 0.1);
+  z-index: 2147483640;
+  transition: all 0.2s ease;
+}
+
+/* Shadow DOM container styles */
+#shadow-container-panda-extract {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 2147483640;
+  pointer-events: none;
+}
+
+#shadow-container-panda-extract * {
+  pointer-events: auto;
+}
+
+/* Reset styles inside shadow DOM */
+#app-container {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Ensure UI elements are visible */
+#app-container * {
+  box-sizing: border-box;
+} 

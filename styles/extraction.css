@@ -1,0 +1,178 @@
+/* EXTRACTOR-GPT Extraction Styles */
+/* Based on WebPeeler CSS classes from ui-constants.js */
+
+/* Base extraction UI classes */
+.panda-extract {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #333;
+}
+
+.panda-extract-cursor-move-overlay {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid #4CAF50;
+  background: rgba(76, 175, 80, 0.1);
+  z-index: 10000;
+}
+
+.panda-extract-element-info-overlay {
+  position: absolute;
+  background: #333;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  z-index: 10001;
+}
+
+.panda-extract-similar-element-overlay {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed #2196F3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.panda-extract-choice-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.panda-extract-choice-button:hover {
+  background: #45a049;
+}
+
+.panda-extractable-highlight {
+  outline: 2px solid #FF9800 !important;
+  background: rgba(255, 152, 0, 0.1) !important;
+}
+
+/* Highlighting classes */
+.panda-highlight-collection-element {
+  outline: 2px solid #2196F3 !important;
+  background: rgba(33, 150, 243, 0.1) !important;
+}
+
+.panda-highlight-active-collection-element {
+  outline: 3px solid #4CAF50 !important;
+  background: rgba(76, 175, 80, 0.2) !important;
+}
+
+.panda-highlight-element {
+  outline: 2px solid #9C27B0 !important;
+  background: rgba(156, 39, 176, 0.1) !important;
+}
+
+/* Layer/Z-Index classes */
+.panda-z { z-index: 10000; }
+.panda-z-1 { z-index: 10001; }
+.panda-z-2 { z-index: 10002; }
+.panda-z-3 { z-index: 10003; }
+.panda-z-4 { z-index: 10004; }
+.panda-z-5 { z-index: 10005; }
+.panda-z-6 { z-index: 10006; }
+.panda-z-7 { z-index: 10007; }
+.panda-z-8 { z-index: 10008; }
+.panda-z-9 { z-index: 10009; }
+.panda-z-10 { z-index: 10010; }
+.panda-z-11 { z-index: 10011; }
+.panda-z-12 { z-index: 10012; }
+
+.layer-popup-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10100;
+}
+
+.layer-popup {
+  position: fixed;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 10101;
+}
+
+/* Table styling */
+.extract-small-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.extract-small-table th {
+  background: #f5f5f5;
+  padding: 8px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+}
+
+.extract-small-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.extract-small-table tr:hover {
+  background: #f9f9f9;
+}
+
+.extract-small-table td.row-number {
+  width: 40px;
+  text-align: center;
+  color: #666;
+}
+
+/* UI Component classes */
+#extractor-gpt-ui {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 300px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  padding: 16px;
+}
+
+.extractor-panel h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.extractor-panel button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+#extractor-results {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Empty view */
+.empty-view-title-container {
+  text-align: center;
+  padding: 32px;
+  color: #666;
+}
+
+.empty-view-title-container p {
+  margin: 8px 0;
+}
+
+

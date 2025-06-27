@@ -1,0 +1,163 @@
+/* ExtractorGPT - Minimal Interface matching WebPeeler */
+
+/* CSS Custom Properties */
+:root {
+  --panda-z-index-base: 2147483640;
+}
+
+/* Element Highlighting - Minimal style */
+.panda-highlight-child-element {
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.panda-highlight-child-sub-element {
+  transition: all 0.2s ease;
+  outline: 2px solid rgba(124, 58, 237, 0.8);
+  box-sizing: border-box;
+}
+
+.panda-highlight-child-sub-element-preview {
+  transition: all 0.2s ease;
+  outline: 2px solid rgba(124, 58, 237, 0.5);
+  box-sizing: border-box;
+}
+
+/* Cursor Overlay */
+.panda-extract-cursor-move-overlay {
+  position: absolute;
+  outline: 2px solid rgba(124, 58, 237, 0.8);
+  background: rgba(124, 58, 237, 0.2);
+  opacity: 0.9;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+/* Collection Highlighting */
+.panda-highlight-collection-element {
+  position: absolute;
+  outline: 2px solid rgba(124, 58, 237, 0.6);
+  background-color: rgba(124, 58, 237, 0.1);
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.panda-extract-highlighted-item {
+  outline: 2px solid rgba(124, 58, 237, 0.6) !important;
+  background-color: rgba(124, 58, 237, 0.05) !important;
+  transition: all 0.2s ease;
+}
+
+.panda-highlight-child-element-active {
+  background: rgba(124, 58, 237, 0.15);
+  border: 2px solid rgba(124, 58, 237, 0.8);
+}
+
+/* Loading Animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* Minimal tooltip styles */
+.panda-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: calc(var(--panda-z-index-base) + 20);
+}
+
+/* Button hover states */
+.panda-button-hover:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Scrollbar styles */
+.panda-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.panda-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.panda-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.panda-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Focus styles */
+.panda-input:focus {
+  outline: none;
+  border-color: rgba(124, 58, 237, 0.5);
+}
+
+/* Disabled state */
+.panda-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
+
+/* Text selection */
+::selection {
+  background: rgba(124, 58, 237, 0.3);
+  color: white;
+}
+
+/* Remove ExtractorGPT specific branding */
+.extractorgpt-panel,
+.extractorgpt-header,
+.extractorgpt-logo,
+.extractorgpt-title,
+.extractorgpt-subtitle,
+.extractorgpt-content,
+.extractorgpt-stats,
+.extractorgpt-stat,
+.extractorgpt-stat-value,
+.extractorgpt-stat-label,
+.extractorgpt-actions,
+.extractorgpt-button,
+.extractorgpt-button-primary,
+.extractorgpt-button-secondary,
+.extractorgpt-status,
+.extractorgpt-status-success,
+.extractorgpt-status-warning,
+.extractorgpt-status-error,
+.extractorgpt-close,
+.extractorgpt-icon,
+.extractorgpt-confidence,
+.extractorgpt-loading {
+  /* Remove all ExtractorGPT branded styles */
+  display: none !important;
+}
+
+/* Dark Mode Support - Keep minimal */
+@media (prefers-color-scheme: dark) {
+  /* Already dark by default */
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .panda-tooltip {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}

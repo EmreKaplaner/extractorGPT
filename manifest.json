@@ -1,0 +1,46 @@
+{
+   "manifest_version": 3,
+   "name": "Extractor GPT - AI Web Scraper",
+   "version": "1.0.0",
+   "description": "Extract structured data from any website using AI-powered selection and pattern recognition",
+   "default_locale": "en",
+   "permissions": [
+      "activeTab",
+      "storage",
+      "scripting",
+      "tabs",
+      "notifications"
+   ],
+   "optional_permissions": [
+      "downloads",
+      "clipboardWrite"
+   ],
+   "optional_host_permissions": [
+      "<all_urls>"
+   ],
+   "background": {
+      "service_worker": "bundle/service.bundle.js"
+   },
+   "action": {
+      "default_title": "Extractor GPT",
+      "default_icon": {
+         "16": "assets/icon256.png",
+         "48": "assets/icon256.png",
+         "128": "assets/icon256.png"
+      }
+   },
+   "icons": {
+      "16": "assets/icon256.png",
+      "48": "assets/icon256.png",
+      "128": "assets/icon256.png"
+   },
+   "web_accessible_resources": [
+      {
+         "resources": [
+            "bundle/*",
+            "assets/*"
+         ],
+         "matches": ["<all_urls>"]
+      }
+   ]
+}
