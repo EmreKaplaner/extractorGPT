@@ -274,3 +274,5 @@ To fix this, we need to:
 5. Fix ExtractionProcessor constructor calls
 6. Implement status update handling
 7. Fix UI styling to match WebPeeler exactly 
+ 
+ 

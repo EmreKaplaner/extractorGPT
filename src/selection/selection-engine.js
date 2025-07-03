@@ -447,6 +447,20 @@ export class SelectionEngine {
     document.removeEventListener("pointerdown", this.pointerDownListener, true);
     this.removeAllHighlights();
   }
+
+  /**
+   * Confirm selection - used by ExtractListTab and other components
+   */
+  confirmSelection() {
+    console.log("[SelectionEngine] Confirming selection...");
+    this.detach();
+    this.setSelectionMode();
+    this.removeAllHighlights();
+    if (this.onSelectionConfirmed) {
+      this.onSelectionConfirmed();
+    }
+    console.log("[SelectionEngine] Selection confirmed");
+  }
 }
 
 export default SelectionEngine; 

@@ -55,3 +55,5 @@ Added real-time progress updates:
 3. Watch progress update (e.g., "Processing: 1 / 3 URLs")
 4. See results or error message
 5. Export results as CSV or copy to clipboard 
+ 
+ 

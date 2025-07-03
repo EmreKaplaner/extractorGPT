@@ -11,12 +11,12 @@
       "tabs",
       "notifications"
    ],
+   "host_permissions": [
+      "<all_urls>"
+   ],
    "optional_permissions": [
       "downloads",
       "clipboardWrite"
-   ],
-   "optional_host_permissions": [
-      "<all_urls>"
    ],
    "background": {
       "service_worker": "bundle/service.bundle.js"

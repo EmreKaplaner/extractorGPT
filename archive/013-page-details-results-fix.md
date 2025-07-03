@@ -78,3 +78,5 @@ The extraction response might be arriving after the UI has already updated, caus
 [ExtractDetailsTab] Extraction response: {success: true, results: [...]}
 [ExtractDetailsTab] Setting extraction results: [...]
 ``` 
+ 
+ 

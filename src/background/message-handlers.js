@@ -354,7 +354,7 @@ async function handleEmailExtraction(request, sender, sendResponse) {
             target: { tabId: tab.id },
             func: () => {
               const emails = new Set();
-              const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+        const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
               
               // Get all text from the page
               const walker = document.createTreeWalker(
@@ -599,7 +599,7 @@ async function handlePageDetailsHighlight(request, sender, sendResponse) {
     // Just wait a bit for it to be ready
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    sendResponse({ success: true });
+        sendResponse({ success: true });
     
   } catch (error) {
     console.error('[Background] Page details highlight error:', error);
@@ -614,7 +614,7 @@ async function handlePageDetailsSelected(request, sender, sendResponse) {
   try {
     // Store selected elements
     await StorageManager.save('pageDetailsElements', request.data?.selectors || []);
-    
+  
     // Get the original requesting tab ID
     const requestingTabId = await StorageManager.retrieve('pageDetailsRequestingTabId');
     
@@ -635,9 +635,9 @@ async function handlePageDetailsSelected(request, sender, sendResponse) {
       if (chrome.runtime.lastError) {
         console.error('[Background] Failed to close selector tab:', chrome.runtime.lastError);
       }
-    });
-    
-    sendResponse({ success: true });
+  });
+  
+  sendResponse({ success: true });
     
   } catch (error) {
     console.error('[Background] Page details selection error:', error);
@@ -691,26 +691,26 @@ async function handlePageDetailsExtract(request, sender, sendResponse) {
         // Get outcomes and format results
         const outcomes = processor.getOutcomes();
         console.log('[Background] Extraction outcomes:', outcomes);
-        const results = [];
+    const results = [];
         
-        for (const [url, outcome] of outcomes) {
+    for (const [url, outcome] of outcomes) {
           console.log('[Background] Processing outcome for URL:', url, 'Outcome:', outcome);
           if (outcome && Array.isArray(outcome)) {
-            const row = { url };
+        const row = { url };
             outcome.forEach(item => {
               if (item?.name && item?.data) {
                 row[item.name] = item.data;
               }
-            });
+        });
             if (Object.keys(row).length > 1) {
-              results.push(row);
-            }
-          }
+        results.push(row);
+      }
+    }
         }
         
         console.log('[Background] Final extraction results:', results);
         activeExtractions.delete('page-details');
-        sendResponse({ success: true, results });
+    sendResponse({ success: true, results });
       }
     }, 1000);
     

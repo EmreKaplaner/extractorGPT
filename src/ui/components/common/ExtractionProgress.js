@@ -145,3 +145,5 @@ export function ExtractionProgress({ totalUrls, processedUrls, status, onStop })
     </div>
   );
 } 
+ 
+ 

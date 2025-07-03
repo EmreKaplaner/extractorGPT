@@ -65,7 +65,7 @@ async function buildService() {
   
   try {
     const result = await esbuild.build({
-      entryPoints: ['./src/background/index.js'],
+      entryPoints: ['./src/service-worker.js'],
       bundle: true,
       outfile: './bundle/service.bundle.js',
       format: 'iife',
@@ -91,7 +91,7 @@ async function buildSelector() {
   
   try {
     const result = await esbuild.build({
-      entryPoints: ['./src/selection/index.js'],
+      entryPoints: ['./src/selector-content.js'],
       bundle: true,
       outfile: './bundle/selector.bundle.js',
       format: 'iife',

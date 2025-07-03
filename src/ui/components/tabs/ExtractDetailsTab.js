@@ -225,7 +225,7 @@ export function ExtractDetailsTab({ isPro }) {
         } else if (response && response.error) {
           setError(response.error);
           setExtractionStatus('idle');
-          setIsExtracting(false);
+        setIsExtracting(false);
         }
       });
     } catch (err) {
@@ -314,7 +314,7 @@ export function ExtractDetailsTab({ isPro }) {
   
   return (
     <div style={{ fontSize: '11px' }}>
-      <div>
+    <div>
         {/* Header */}
         <div style={{
           display: 'flex',
@@ -585,7 +585,7 @@ export function ExtractDetailsTab({ isPro }) {
               }}>
                 Opening page for element selection...
               </p>
-            </div>
+        </div>
           ) : (
             <button
               onClick={handleAddElements}
@@ -629,8 +629,8 @@ export function ExtractDetailsTab({ isPro }) {
           )}
           
           {/* Display selected elements */}
-          {selectedElements.length > 0 && (
-            <div style={{
+        {selectedElements.length > 0 && (
+          <div style={{
               marginTop: '8px',
               padding: '8px',
               backgroundColor: 'rgba(0, 0, 0, 0.03)',
@@ -644,8 +644,8 @@ export function ExtractDetailsTab({ isPro }) {
                   • {elem.name || `Element ${index + 1}`}
                 </div>
               ))}
-            </div>
-          )}
+          </div>
+        )}
         </div>
         
         {/* Configuration Section */}
@@ -663,16 +663,16 @@ export function ExtractDetailsTab({ isPro }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
-          }}>
+        }}>
             <div>
-              <h3 style={{
+          <h3 style={{
                 margin: 0,
                 fontSize: '12px',
-                fontWeight: '500',
+            fontWeight: '500',
                 color: 'rgba(255, 255, 255, 0.9)'
-              }}>
-                Configuration
-              </h3>
+          }}>
+            Configuration
+          </h3>
               <p style={{
                 margin: 0,
                 fontSize: '10px',
@@ -698,12 +698,12 @@ export function ExtractDetailsTab({ isPro }) {
             border: '1px solid rgba(255, 255, 255, 0.08)',
             marginBottom: '8px'
           }}>
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
               gap: '8px'
-            }}>
-              {/* Parallel Tabs */}
+          }}>
+            {/* Parallel Tabs */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -758,9 +758,9 @@ export function ExtractDetailsTab({ isPro }) {
                     +
                   </button>
                 </div>
-              </div>
-              
-              {/* Max Wait Time */}
+            </div>
+            
+            {/* Max Wait Time */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -792,9 +792,9 @@ export function ExtractDetailsTab({ isPro }) {
                   />
                   <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.4)' }}>seconds</span>
                 </div>
-              </div>
-              
-              {/* Delay Before Extract */}
+            </div>
+            
+            {/* Delay Before Extract */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -886,7 +886,7 @@ export function ExtractDetailsTab({ isPro }) {
             fontSize: '10px'
           }}>
             {error}
-          </div>
+      </div>
         )}
         
         {/* Extraction Progress */}
@@ -898,10 +898,10 @@ export function ExtractDetailsTab({ isPro }) {
             onStop={handleStopExtraction}
           />
         )}
-        
+      
         {/* Results Section */}
-        {extractionResults.length > 0 && (
-          <div style={{
+      {extractionResults.length > 0 && (
+        <div style={{
             marginTop: '16px',
             borderTop: '1px solid rgba(255, 255, 255, 0.08)',
             paddingTop: '12px'
@@ -911,15 +911,15 @@ export function ExtractDetailsTab({ isPro }) {
               justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '10px'
-            }}>
-              <h3 style={{
+        }}>
+          <h3 style={{
                 fontSize: '12px',
-                fontWeight: '500',
+            fontWeight: '500',
                 margin: 0,
                 color: 'rgba(255, 255, 255, 0.9)'
-              }}>
+          }}>
                 Extracted Results ({extractionResults.length})
-              </h3>
+          </h3>
               <div style={{
                 display: 'flex',
                 gap: '4px'
@@ -973,20 +973,20 @@ export function ExtractDetailsTab({ isPro }) {
             </div>
             
             {/* Results Table */}
-            <div style={{
+          <div style={{
               maxHeight: '300px',
               overflowY: 'auto',
               backgroundColor: 'rgba(0, 0, 0, 0.03)',
               borderRadius: '3px',
               border: '1px solid rgba(255, 255, 255, 0.08)',
               fontSize: '10px'
-            }}>
+          }}>
               {extractionResults.length > 0 && (
-                <table style={{
-                  width: '100%',
+            <table style={{
+              width: '100%',
                   borderCollapse: 'collapse'
-                }}>
-                  <thead>
+            }}>
+              <thead>
                     <tr style={{
                       backgroundColor: 'rgba(0, 0, 0, 0.05)',
                       borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
@@ -994,17 +994,17 @@ export function ExtractDetailsTab({ isPro }) {
                       {Object.keys(extractionResults[0]).map((key, index) => (
                         <th key={index} style={{
                           padding: '6px',
-                          textAlign: 'left',
-                          fontWeight: '500',
+                      textAlign: 'left',
+                      fontWeight: '500',
                           color: 'rgba(255, 255, 255, 0.8)',
                           borderRight: index < Object.keys(extractionResults[0]).length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none'
-                        }}>
-                          {key}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    }}>
+                      {key}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
                     {extractionResults.map((row, rowIndex) => (
                       <tr key={rowIndex} style={{
                         borderBottom: rowIndex < extractionResults.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none'
@@ -1014,18 +1014,18 @@ export function ExtractDetailsTab({ isPro }) {
                             padding: '6px',
                             color: 'rgba(255, 255, 255, 0.6)',
                             borderRight: colIndex < Object.values(row).length - 1 ? '1px solid rgba(255, 255, 255, 0.03)' : 'none'
-                          }}>
+                      }}>
                             {value || '-'}
-                          </td>
-                        ))}
-                      </tr>
+                      </td>
                     ))}
-                  </tbody>
-                </table>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
               )}
-            </div>
           </div>
-        )}
+        </div>
+      )}
         
         {/* Select Elements Modal */}
         {showSelectElementsModal && (

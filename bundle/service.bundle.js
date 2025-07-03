@@ -1,1 +1,1505 @@
-(()=>{var re=Object.freeze({TEXT:"text",IMAGE_URL:"image-url",LINK_URL:"link-url",EMAIL:"email"}),se=Object.freeze({EXTRACT:"EXTRACT",EXTRACT_TEXT:"EXTRACT_TEXT",EXTRACT_HTML:"EXTRACT_HTML",EXTRACT_ATTRIBUTE:"EXTRACT_ATTRIBUTE",EXTRACT_IMAGE_URL:"EXTRACT_IMAGE_URL",EXTRACT_LINK_URL:"EXTRACT_LINK_URL"});var C={DOWNLOAD_IMAGES:"download-images",DOWNLOAD_FILE:"download-file",REQUEST_CLIPBOARD_PERMISSIONS:"request-clipboard-permissions",PAGE_DETAILS_HIGHLIGHT:"page-details-highlight",PAGE_DETAILS_SELECTED:"page-details-selected",PAGE_DETAILS_EXTRACT:"page-details-extract",STOP_PAGE_DETAILS_EXTRACTION:"stop-page-details-extraction",EXTRACT_EMAILS:"extract-emails",EXTRACT_EMAILS_STOP:"extract-emails-stop",STATUS_UPDATE_EXTRACT:"status-update-extract",STATUS_UPDATE_EXTRACT_EMAILS:"status-update-extract-emails"},L={PERMISSIONS_GRANTED:"permissionsGranted",PERMISSIONS_CLIPBOARD_GRANTED:"permissionsClipboardGranted",REQUEST_HIGHLIGHT_TAB_ID:"requestHighlightTabId",EXTRACT_SETTINGS:"extractSettings"};var v=class{static save(e,t){try{chrome&&chrome.storage&&chrome.storage.local&&chrome.storage.local.set({[e]:t},()=>{chrome.runtime.lastError&&console.error("Storage save error:",chrome.runtime.lastError)})}catch(r){console.error("Error saving to storage:",r)}}static async getAllKeys(){return new Promise(e=>{try{chrome&&chrome.storage&&chrome.storage.local?chrome.storage.local.get(null,t=>{let r=Object.keys(t);e(r)}):e([])}catch(t){console.error("Error getting all keys:",t),e([])}})}static async retrieve(e){return new Promise(t=>{try{chrome&&chrome.storage&&chrome.storage.local?chrome.storage.local.get([e],r=>{r[e]!==void 0?t(r[e]):t(null)}):t(null)}catch(r){console.error("Error retrieving from storage:",r),t(null)}})}static async remove(e){return new Promise(t=>{try{chrome&&chrome.storage&&chrome.storage.local?chrome.storage.local.remove(e,()=>{t()}):t()}catch(r){console.error("Error removing from storage:",r),t()}})}static async removeAny(e){return new Promise(async t=>{try{if(chrome&&chrome.storage&&chrome.storage.local){let a=(await this.getAllKeys()).filter(o=>o.includes(e));if(a.length===0){t();return}chrome.storage.local.remove(a,()=>{t()})}else t()}catch(r){console.error("Error removing keys by pattern:",r),t()}})}static clearAll(){try{chrome&&chrome.storage&&chrome.storage.local&&chrome.storage.local.clear(()=>{chrome.runtime.lastError&&console.error("Storage clear error:",chrome.runtime.lastError)})}catch(e){console.error("Error clearing storage:",e)}}static async getMultiple(e){return new Promise(t=>{try{chrome&&chrome.storage&&chrome.storage.local?chrome.storage.local.get(e,r=>{t(r)}):t({})}catch(r){console.error("Error getting multiple keys:",r),t({})}})}static saveMultiple(e){try{chrome&&chrome.storage&&chrome.storage.local&&chrome.storage.local.set(e,()=>{chrome.runtime.lastError&&console.error("Storage save multiple error:",chrome.runtime.lastError)})}catch(t){console.error("Error saving multiple items:",t)}}static addListener(e){chrome&&chrome.storage&&chrome.storage.onChanged&&chrome.storage.onChanged.addListener((t,r)=>{r==="local"&&e(t)})}static async getBytesInUse(e=null){return new Promise(t=>{try{chrome&&chrome.storage&&chrome.storage.local&&chrome.storage.local.getBytesInUse?chrome.storage.local.getBytesInUse(e,r=>{t(r)}):t(0)}catch(r){console.error("Error getting storage size:",r),t(0)}})}},E=v;var _=class{static requestAllUrlsPermission({onSuccess:e,onFailure:t}){chrome.permissions.contains({permissions:[],origins:["<all_urls>"]},r=>{r?(E.save(L.PERMISSIONS_GRANTED,!0),e()):chrome.permissions.request({permissions:[],origins:["<all_urls>"]},a=>{let o=chrome.runtime.lastError;if(o){o.message.includes("user gesture")&&chrome.runtime.openOptionsPage(),t();return}a?(E.save(L.PERMISSIONS_GRANTED,!0),e()):t()})})}static requestClipboardPermission({onSuccess:e,onFailure:t}){chrome.permissions.contains({permissions:["clipboardWrite"]},r=>{r?(E.save(L.PERMISSIONS_CLIPBOARD_GRANTED,!0),e()):chrome.permissions.request({permissions:["clipboardWrite"]},a=>{if(chrome.runtime.lastError){t();return}a?(E.save(L.PERMISSIONS_CLIPBOARD_GRANTED,!0),e()):t()})})}static requestDownloadsPermission({onSuccess:e,onFailure:t}){chrome.permissions.contains({permissions:["downloads"]},r=>{r?e():chrome.permissions.request({permissions:["downloads"]},a=>{if(chrome.runtime.lastError){t();return}a?e():t()})})}static async hasAllUrlsPermission(){return new Promise(e=>{chrome.permissions.contains({permissions:[],origins:["<all_urls>"]},t=>{e(t)})})}static async hasClipboardPermission(){return new Promise(e=>{chrome.permissions.contains({permissions:["clipboardWrite"]},t=>{e(t)})})}static async hasDownloadsPermission(){return new Promise(e=>{chrome.permissions.contains({permissions:["downloads"]},t=>{e(t)})})}static async removePermission(e){return new Promise(t=>{chrome.permissions.remove({permissions:[e]},r=>{t(r)})})}static async getAllPermissions(){return new Promise(e=>{chrome.permissions.getAll(t=>{e(t)})})}static async requestMultiplePermissions(e,t=[]){return new Promise(r=>{chrome.permissions.request({permissions:e,origins:t},a=>{chrome.runtime.lastError?r(!1):r(a)})})}static async hasMultiplePermissions(e,t=[]){return new Promise(r=>{chrome.permissions.contains({permissions:e,origins:t},a=>{r(a)})})}},N=_;var k=class{constructor({request:e}){if(!e)throw new Error("Request object is required");if(!e.urls||!Array.isArray(e.urls)||e.urls.length===0)throw new Error("Request must contain a non-empty array of URLs");if(!e.elements||!Array.isArray(e.elements)||e.elements.length===0)throw new Error("Request must contain a non-empty array of elements to extract");if(!e.parallelTabs||e.parallelTabs<1)throw new Error("Request must specify a positive number of parallel tabs");this.urls=e.urls,this.elements=e.elements,this.parallelTabs=e.parallelTabs,this.maxWaitTime=e.maxWaitTime||30,this.delayBeforeExtract=e.delayBeforeExtract||0,this.requestQueue=[...this.urls],this.activeCount=0,this.requestStatus=new Map,this.outcomes=new Map,this.cancelled=!1,this.activeTabs=new Set}getProgressBar(){let e=this.urls.length,t=this.urls.length-this.requestQueue.length-this.activeCount,r=this.activeCount,a=Math.floor(t/e*30),o=Math.floor(r/e*30),n=30-a-o;return`[PROGRESS]${"\u2588".repeat(a)+"\u2592".repeat(o)+"\u2591".repeat(n)} ${t}/${e} (${r} active)`}initialize(){this.urls.forEach(e=>{this.requestStatus.set(e,{status:"idle",outcome:null})}),this.processQueue()}async processQueue(){for(;this.requestQueue.length>0&&this.activeCount<this.parallelTabs&&!this.cancelled;){let e=this.requestQueue.shift();this.activeCount++,this.requestStatus.set(e,{status:"running",outcome:null}),this.processRequest(e).then(t=>{this.requestStatus.set(e,{status:"complete",outcome:t}),this.outcomes.set(e,t)}).catch(t=>{this.requestStatus.set(e,{status:"failed",outcome:t.message}),this.outcomes.set(e,{status:"failed",error:t.message})}).finally(()=>{this.activeCount--,this.processQueue()})}}async processRequest(e){if(this.cancelled)throw new Error("Processing has been cancelled.");return new Promise((t,r)=>{let a=null,o=null,n=null,c=!1,l=!1,d=()=>{n&&(clearInterval(n),n=null),o&&(clearTimeout(o),o=null),a!==null&&(this.activeTabs.delete(a),chrome.tabs.remove(a,()=>{chrome.runtime.lastError}))},g=p=>{let m=[];return p.forEach(i=>{var T;if(i.type==="emails"){let w=document.body.innerHTML.replace(/\s+/g," ").trim(),h=/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,S=w.match(h)||[],b={},f=S.map(y=>y.toLowerCase()).filter(y=>!y||y.length>254||y.charAt(0)==="."||y.charAt(y.length-1)==="."||(h.lastIndex=0,!h.test(y))||b[y]?!1:(b[y]=!0,!0));f.length?m.push({id:i.elementId,name:i.name,type:i.type,data:f,selectorType:"regex"}):m.push({id:i.elementId,name:i.name,type:i.type,data:null,error:"No emails found"});return}let u=i.selectors.sort((w,h)=>h.order-w.order),x=null;for(let w of u){let h;try{h=document.querySelectorAll(w.selector)[w.index]}catch{continue}if(h){switch(i.type){case"text":x=(T=h.innerText)==null?void 0:T.trim();break;case"image-url":x=h.src;break;case"link-url":x=h.href;break}if(x){m.push({id:i.elementId,name:i.name,type:i.type,data:x,selectorType:w.type});break}}}x||m.push({id:i.elementId,name:i.name,type:i.type,selector:null,data:null,error:"No data found"})}),m},A=()=>{if(c){clearInterval(n);return}if(!l){setTimeout(()=>{c||(l=!0)},this.delayBeforeExtract*1e3);return}chrome.scripting.executeScript({target:{tabId:a},func:g,args:[this.elements]},p=>{if(!c){if(chrome.runtime.lastError){c=!0,clearInterval(n),r(new Error(chrome.runtime.lastError.message)),d();return}if(p&&p[0]&&p[0].result){let m=p[0].result;m.some(u=>u.data!==null)&&(c=!0,clearInterval(n),t(m),d())}}})};chrome.tabs.create({url:e,active:!1},p=>{if(chrome.runtime.lastError){r(new Error(chrome.runtime.lastError.message));return}a=p.id,this.activeTabs.add(a),chrome.tabs.onUpdated.addListener(function m(i,u){i===a&&u.status==="complete"&&(chrome.tabs.onUpdated.removeListener(m),o=setTimeout(()=>{r(new Error("Max wait time exceeded")),d()},this.maxWaitTime*1e3),n=setInterval(A,1e3))})})})}cancel(){this.cancelled=!0,this.requestQueue=[],this.activeTabs.forEach(e=>{chrome.tabs.remove(e,()=>{chrome.runtime.lastError})}),this.activeTabs.clear(),this.requestStatus.forEach((e,t)=>{(e.status==="running"||e.status==="idle")&&this.requestStatus.set(t,{status:"cancelled",outcome:"Processing was cancelled."})})}getStatus(){return Array.from(this.requestStatus.entries()).map(([t,r])=>({url:t,...r}))}getOutcomes(){return this.outcomes}},D=k;var U=class{static async downloadImages({images:e,folder:t="panda-images"}){if(!e||e.length===0)return;let r=c=>c.replace(/[^a-z0-9]/gi,"_").toLowerCase(),a=c=>{let l=Date.now();c.forEach((d,g)=>{let A=d.split(".").pop().split(/[#?]/)[0];(!A||A.length>5)&&(A="png");let m=`${r(t)}/${l}_${g}.${A}`;chrome.downloads.download({url:d,filename:m,saveAs:!1},i=>{chrome.runtime.lastError&&console.error(`Error downloading ${d}:`,chrome.runtime.lastError)})})},o=10;await(async()=>{for(let c=0;c<e.length;c+=o){let l=e.slice(c,c+o);a(l),await new Promise(d=>setTimeout(d,500))}})()}static async downloadImage({url:e,filename:t}){return new Promise((r,a)=>{chrome.downloads.download({url:e,filename:t,saveAs:!1},o=>{chrome.runtime.lastError?a(new Error(chrome.runtime.lastError.message)):r(o)})})}static monitorDownload(e){return new Promise((t,r)=>{let a=()=>{chrome.downloads.search({id:e},o=>{if(o.length===0){r(new Error("Download not found"));return}let n=o[0];n.state==="complete"?t(n):n.state==="interrupted"?r(new Error(`Download interrupted: ${n.error}`)):setTimeout(a,100)})};a()})}static async getDownloadHistory(e={}){return new Promise(t=>{chrome.downloads.search(e,r=>{t(r)})})}static async clearDownloadHistory(){(await this.getDownloadHistory()).forEach(t=>{chrome.downloads.erase({id:t.id})})}static async pauseDownload(e){return new Promise((t,r)=>{chrome.downloads.pause(e,()=>{chrome.runtime.lastError?r(new Error(chrome.runtime.lastError.message)):t()})})}static async resumeDownload(e){return new Promise((t,r)=>{chrome.downloads.resume(e,()=>{chrome.runtime.lastError?r(new Error(chrome.runtime.lastError.message)):t()})})}static async cancelDownload(e){return new Promise((t,r)=>{chrome.downloads.cancel(e,()=>{chrome.runtime.lastError?r(new Error(chrome.runtime.lastError.message)):t()})})}static async openDownload(e){return new Promise((t,r)=>{chrome.downloads.open(e,()=>{chrome.runtime.lastError?r(new Error(chrome.runtime.lastError.message)):t()})})}static showDownloadInFolder(e){chrome.downloads.show(e)}static async acceptDanger(e){return new Promise((t,r)=>{chrome.downloads.acceptDanger(e,()=>{chrome.runtime.lastError?r(new Error(chrome.runtime.lastError.message)):t()})})}},G=U;var R=new Map;function X(){if(typeof chrome>"u"||!chrome.runtime){console.error("Chrome runtime API not available");return}chrome.runtime.onMessage.addListener((s,e,t)=>{switch(console.log("Background received message:",s),s.action){case"extract-data":W(s,e,t);break;case"save-results":j(s,e,t);break;case"get-settings":K(s,e,t);break;case"update-settings":H(s,e,t);break;case"download-data":z(s,e,t);break;case"element-selected":V(s,e,t);break;case"content-load-error":console.error("Content script failed to load:",s.error),t({status:"acknowledged"});break;case C.EXTRACT_EMAILS:return F(s,e,t),!0;case C.EXTRACT_EMAILS_STOP:$(s,e,t);break;case"page-details-start":return q(s,e,t),!0;case"page-details-highlight":return Q(s,e,t),!0;case"page-details-selected":Z(s,e,t);break;case"page-details-extract":return J(s,e,t),!0;case"stop-page-details-extraction":Y(s,e,t);break;default:console.warn("Unknown message action:",s.action),t({status:"unknown-action"})}return!0}),chrome.runtime.onConnect.addListener(s=>{console.log("Port connected:",s.name),s.onDisconnect.addListener(()=>{chrome.runtime.lastError&&console.warn("Port disconnected with error:",chrome.runtime.lastError.message)})}),chrome.runtime.onSuspend&&chrome.runtime.onSuspend.addListener(()=>{R.forEach(s=>s.cancel()),R.clear()})}function W(s,e,t){let{url:r,selector:a,options:o}=s.data||{};console.log("Extracting data from:",r,"with selector:",a),setTimeout(()=>{t({status:"success",data:{extractedCount:0,results:[]}})},100)}function j(s,e,t){let{results:r}=s.data||{};console.log("Saving results:",r),chrome.storage.local.set({lastResults:r,lastSaveTime:new Date().toISOString()},()=>{chrome.runtime.lastError?t({status:"error",error:chrome.runtime.lastError.message}):t({status:"success"})})}function K(s,e,t){chrome.storage.sync.get(["settings"],r=>{chrome.runtime.lastError?t({status:"error",error:chrome.runtime.lastError.message}):t({status:"success",settings:r.settings||{}})})}function H(s,e,t){let{settings:r}=s.data||{};chrome.storage.sync.set({settings:r},()=>{chrome.runtime.lastError?t({status:"error",error:chrome.runtime.lastError.message}):t({status:"success"})})}function z(s,e,t){let{data:r,format:a,filename:o}=s.data||{};console.log("Downloading data in format:",a);let n,c;switch(a){case"csv":c="text/csv",n=new Blob([r],{type:c});break;case"json":c="application/json",n=new Blob([JSON.stringify(r,null,2)],{type:c});break;default:t({status:"error",error:"Unsupported format"});return}let l=URL.createObjectURL(n);chrome.downloads.download({url:l,filename:o||`extraction_${Date.now()}.${a}`,saveAs:!0},d=>{URL.revokeObjectURL(l),chrome.runtime.lastError?t({status:"error",error:chrome.runtime.lastError.message}):t({status:"success",downloadId:d})})}function V(s,e,t){var o,n;let{extractables:r,element:a}=s.data||{};console.log("Element selected:",a,"Extractables:",r),chrome.storage.local.set({lastSelectedElement:{element:a,extractables:r,timestamp:new Date().toISOString(),tabId:(o=e.tab)==null?void 0:o.id,url:(n=e.tab)==null?void 0:n.url}},()=>{t({status:"success"})})}async function F(s,e,t){console.log("[Background] Starting email extraction for URLs:",s.urls);let{urls:r,config:a}=s,o=(a==null?void 0:a.parallelTabs)||1,n=((a==null?void 0:a.maxWaitTime)||30)*1e3,c=((a==null?void 0:a.delayBeforeExtract)||0)*1e3,l=new Set,d=0;try{for(let g=0;g<r.length;g+=o){let p=r.slice(g,g+o).map(async m=>{var i;try{let u=await chrome.tabs.create({url:m,active:!1});await new Promise((T,w)=>{let h=Date.now(),S=(b,f)=>{b===u.id&&f.status==="complete"?(chrome.tabs.onUpdated.removeListener(S),T()):Date.now()-h>n&&(chrome.tabs.onUpdated.removeListener(S),w(new Error("Tab load timeout")))};chrome.tabs.onUpdated.addListener(S)}),c>0&&await new Promise(T=>setTimeout(T,c));let x=await chrome.scripting.executeScript({target:{tabId:u.id},func:()=>{let T=new Set,w=/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,h=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:b=>{let f=b.parentElement;return f&&(f.tagName==="SCRIPT"||f.tagName==="STYLE")?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT}}),S;for(;S=h.nextNode();){let b=S.textContent;b&&(b.match(w)||[]).forEach(y=>T.add(y.toLowerCase()))}return document.querySelectorAll('a[href^="mailto:"]').forEach(b=>{let f=b.href.replace("mailto:","").split("?")[0];f&&w.test(f)&&T.add(f.toLowerCase())}),Array.from(T)}});(i=x[0])!=null&&i.result&&x[0].result.forEach(T=>l.add(T)),await chrome.tabs.remove(u.id),d++,chrome.tabs.sendMessage(e.tab.id,{action:"email-extraction-progress",processedUrls:d,totalUrls:r.length}).catch(()=>{})}catch(u){console.error(`[Background] Error extracting emails from ${m}:`,u),d++}});await Promise.all(p)}t({success:!0,emails:Array.from(l)})}catch(g){console.error("[Background] Email extraction error:",g),t({success:!1,error:g.message})}}function $(s,e,t){return console.log("[Background] Email extraction stop requested"),t({success:!0}),!1}async function q(s,e,t){console.log("[Background] Page details start request:",s);try{let{urls:r}=s;if(!r||r.length===0){t({success:!1,error:"No URLs provided"});return}await E.save("pageDetailsUrls",r);let a=await chrome.tabs.create({url:r[0],active:!0});await new Promise(o=>{let n=(c,l)=>{c===a.id&&l.status==="complete"&&(chrome.tabs.onUpdated.removeListener(n),o())};chrome.tabs.onUpdated.addListener(n)}),await chrome.scripting.insertCSS({target:{tabId:a.id},files:["bundle/styles.css","bundle/layers.css"]}),await chrome.scripting.executeScript({target:{tabId:a.id},files:["bundle/selector.bundle.js"]}),await new Promise(o=>setTimeout(o,500)),await chrome.tabs.sendMessage(a.id,{action:"init-selector",mode:"page-details"}),t({success:!0})}catch(r){console.error("[Background] Page details start error:",r),t({success:!1,error:r.message})}}async function Q(s,e,t){console.log("[Background] Page details highlight request:",s);try{let{urls:r}=s.data||{};if(!r||r.length===0){t({success:!1,error:"No URLs provided"});return}let a=await E.retrieve("pageDetailsUrls")||r;await E.save("pageDetailsUrls",a),await E.save("pageDetailsRequestingTabId",e.tab.id),await E.save("pageDetailsMode",!0);let o=await chrome.tabs.create({url:r[0],active:!0}),n=new Promise((c,l)=>setTimeout(()=>l(new Error("Timeout waiting for page to load")),3e4));try{await Promise.race([new Promise(c=>{let l=(d,g)=>{d===o.id&&g.status==="complete"&&(chrome.tabs.onUpdated.removeListener(l),c())};chrome.tabs.onUpdated.addListener(l)}),n])}catch{console.error("[Background] Timeout waiting for page to load"),await chrome.tabs.remove(o.id).catch(()=>{}),t({success:!1,error:"Page load timeout"});return}await new Promise(c=>setTimeout(c,1e3));try{await chrome.tabs.get(o.id)}catch{console.error("[Background] Tab was closed"),t({success:!1,error:"Tab was closed"});return}try{await chrome.scripting.insertCSS({target:{tabId:o.id},files:["bundle/layers.css","bundle/styles.css"]})}catch(c){console.error("[Background] CSS injection error:",c)}try{await chrome.scripting.executeScript({target:{tabId:o.id},files:["bundle/selector.bundle.js"]}),console.log("[Background] Selector script injected successfully")}catch(c){console.error("[Background] Script injection error:",c),await chrome.tabs.remove(o.id).catch(()=>{}),t({success:!1,error:"Failed to inject selector script"});return}await new Promise(c=>setTimeout(c,500)),t({success:!0})}catch(r){console.error("[Background] Page details highlight error:",r),t({success:!1,error:r.message})}}async function Z(s,e,t){var r;console.log("[Background] Page details element selected:",s);try{await E.save("pageDetailsElements",((r=s.data)==null?void 0:r.selectors)||[]);let a=await E.retrieve("pageDetailsRequestingTabId");a&&chrome.tabs.sendMessage(a,{action:"page-details-selected-complete",data:s.data},o=>{chrome.runtime.lastError&&console.error("[Background] Failed to send elements to requesting tab:",chrome.runtime.lastError)}),chrome.tabs.remove(e.tab.id,()=>{chrome.runtime.lastError&&console.error("[Background] Failed to close selector tab:",chrome.runtime.lastError)}),t({success:!0})}catch(a){console.error("[Background] Page details selection error:",a),t({success:!1,error:a.message})}}async function J(s,e,t){console.log("[Background] Page details extract request:",s);try{let{urls:r,elements:a,config:o}=s,n=new D({request:{urls:r,elements:a,parallelTabs:(o==null?void 0:o.parallelTabs)||1,maxWaitTime:(o==null?void 0:o.maxWaitTime)||30,delayBeforeExtract:(o==null?void 0:o.delayBeforeExtract)||0}});R.set("page-details",n),n.initialize();let c=setInterval(()=>{let l=n.getStatus();if(chrome.tabs.sendMessage(e.tab.id,{action:"status-update-extract",data:l}).catch(()=>{}),l.every(g=>["complete","failed","cancelled"].includes(g.status))){clearInterval(c);let g=n.getOutcomes();console.log("[Background] Extraction outcomes:",g);let A=[];for(let[p,m]of g)if(console.log("[Background] Processing outcome for URL:",p,"Outcome:",m),m&&Array.isArray(m)){let i={url:p};m.forEach(u=>{u!=null&&u.name&&(u!=null&&u.data)&&(i[u.name]=u.data)}),Object.keys(i).length>1&&A.push(i)}console.log("[Background] Final extraction results:",A),R.delete("page-details"),t({success:!0,results:A})}},1e3);setTimeout(()=>{clearInterval(c),R.has("page-details")&&(R.delete("page-details"),t({success:!1,error:"Extraction timeout"}))},((o==null?void 0:o.maxWaitTime)||30)*1e3*r.length)}catch(r){console.error("[Background] Page details extraction error:",r),t({success:!1,error:r.message})}finally{R.delete("page-details")}}function Y(s,e,t){let r=R.get("page-details");r&&(r.cancel(),R.delete("page-details")),t({success:!0})}var B=X;var O=class{constructor(){console.log("[EXTRACTOR-GPT] Analytics disabled - using no-op implementation")}trackPageView(e,t={}){console.debug("[Analytics] Page view:",e,t)}trackUserAction(e,t={}){console.debug("[Analytics] User action:",e,t)}trackError(e,t=""){console.debug("[Analytics] Error:",e,t)}trackExtraction(e,t={}){console.debug("[Analytics] Extraction:",e,t)}track(e,t={}){console.debug("[Analytics] Track:",e,t)}async sendAnalytics(e){}async flushQueue(){}async getSessionId(){return"local-session-"+Date.now()}async getUserId(){return"local-user"}getBrowserInfo(){return{name:"Chrome",userAgent:navigator.userAgent,language:navigator.language,platform:navigator.platform}}generateId(){return`${Date.now()}-${Math.random().toString(36).substr(2,9)}`}trackExtractionStarted({urls:e,elements:t,type:r}){console.debug("[Analytics] Extraction started:",{urls:e,elements:t,type:r})}trackExtractionCompleted({urls:e,elements:t,type:r,duration:a,rowCount:o}){console.debug("[Analytics] Extraction completed:",{urls:e,elements:t,type:r,duration:a,rowCount:o})}trackExport({format:e,rowCount:t}){console.debug("[Analytics] Export:",{format:e,rowCount:t})}trackFeatureUsage(e){console.debug("[Analytics] Feature usage:",e)}async setUserId(e){console.debug("[Analytics] Set user ID:",e)}async clearUserId(){console.debug("[Analytics] Clear user ID")}trackTiming({category:e,variable:t,time:r,label:a}){console.debug("[Analytics] Timing:",{category:e,variable:t,time:r,label:a})}},I=new O,ee={trackPageView:s=>I.trackPageView(s),trackExtractionStarted:s=>I.trackExtractionStarted(s),trackExtractionCompleted:s=>I.trackExtractionCompleted(s),trackExport:s=>I.trackExport(s),trackError:s=>I.trackError(s),trackFeatureUsage:s=>I.trackFeatureUsage(s),trackUserAction:(s,e)=>I.trackUserAction(s,e),setUserId:async s=>await I.setUserId(s),clearUserId:async()=>await I.clearUserId(),trackTiming:s=>I.trackTiming(s)},M=ee;var P=new Map,te=async s=>{let e=s.id;if(P.get(e)==="injecting"){console.log("[SERVICE-WORKER] Already injecting scripts for tab",e);return}try{P.set(e,"checking");let t=await chrome.tabs.sendMessage(e,{action:"ping"}).catch(()=>null);if(t&&t.status==="pong"){console.log("[SERVICE-WORKER] Content script already loaded for tab",e,", sending open message..."),P.set(e,"loaded");try{let r=await chrome.tabs.sendMessage(e,{action:"open"});console.log("[SERVICE-WORKER] Open message sent successfully, response:",r)}catch(r){console.error("[SERVICE-WORKER] Error sending open message:",r)}return}}catch{console.log("[SERVICE-WORKER] Content script not loaded, will inject...")}console.log("[SERVICE-WORKER] Injecting scripts for tab",e),P.set(e,"injecting");try{await chrome.scripting.insertCSS({target:{tabId:e},files:["bundle/layers.css","bundle/styles.css"]}),console.log("[SERVICE-WORKER] CSS injected successfully"),await chrome.scripting.executeScript({target:{tabId:e},files:["bundle/main.bundle.js"]}),console.log("[SERVICE-WORKER] JavaScript injected successfully"),await new Promise(t=>setTimeout(t,200));try{let t=await chrome.tabs.sendMessage(e,{action:"open"});console.log("[SERVICE-WORKER] Open message sent successfully after injection, response:",t),P.set(e,"loaded")}catch(t){console.error("[SERVICE-WORKER] Error sending open message after injection:",t),P.set(e,"error")}}catch(t){console.error("[SERVICE-WORKER] Error injecting scripts:",t),P.set(e,"error"),chrome.notifications.create({type:"basic",iconUrl:"assets/icon256.png",title:"ExtractorGPT Error",message:"Failed to inject scripts. Please refresh the page and try again."})}};(function(){"use strict";console.log("[EXTRACTOR-GPT] Service worker initializing..."),self.__extractorGPT={storage:new E,activeExtractions:new Map,requestHighlightTabId:null},B(),chrome.action.onClicked.addListener(s=>{console.log("[SERVICE-WORKER] Extension icon clicked for tab:",s.id),te(s)}),chrome.tabs.onRemoved.addListener(s=>{P.delete(s)}),chrome.tabs.onUpdated.addListener((s,e)=>{e.status==="loading"&&P.delete(s)}),chrome.runtime.onInstalled.addListener(s=>{s.reason==="install"?M.trackUserAction("extension_installed",{version:chrome.runtime.getManifest().version}):s.reason==="update"&&M.trackUserAction("extension_updated",{previousVersion:s.previousVersion,version:chrome.runtime.getManifest().version})}),chrome.runtime.onStartup.addListener(()=>{console.log("[EXTRACTOR-GPT] Extension startup - cleaning up"),self.__extractorGPT.activeExtractions.clear()}),console.log("[EXTRACTOR-GPT] Service worker initialized")})();})();
+(() => {
+  // src/engine/constants.js
+  var U = Object.freeze({
+    TEXT: "text",
+    IMAGE_URL: "image-url",
+    LINK_URL: "link-url",
+    EMAIL: "email"
+  });
+  var ExtractionActions = Object.freeze({
+    EXTRACT: "EXTRACT",
+    EXTRACT_TEXT: "EXTRACT_TEXT",
+    EXTRACT_HTML: "EXTRACT_HTML",
+    EXTRACT_ATTRIBUTE: "EXTRACT_ATTRIBUTE",
+    EXTRACT_IMAGE_URL: "EXTRACT_IMAGE_URL",
+    EXTRACT_LINK_URL: "EXTRACT_LINK_URL"
+  });
+
+  // src/constants/index.js
+  var MessageActions = {
+    DOWNLOAD_IMAGES: "download-images",
+    DOWNLOAD_FILE: "download-file",
+    REQUEST_CLIPBOARD_PERMISSIONS: "request-clipboard-permissions",
+    PAGE_DETAILS_HIGHLIGHT: "page-details-highlight",
+    PAGE_DETAILS_SELECTED: "page-details-selected",
+    PAGE_DETAILS_EXTRACT: "page-details-extract",
+    STOP_PAGE_DETAILS_EXTRACTION: "stop-page-details-extraction",
+    EXTRACT_EMAILS: "extract-emails",
+    EXTRACT_EMAILS_STOP: "extract-emails-stop",
+    STATUS_UPDATE_EXTRACT: "status-update-extract",
+    STATUS_UPDATE_EXTRACT_EMAILS: "status-update-extract-emails"
+  };
+  var StorageKeys = {
+    PERMISSIONS_GRANTED: "permissionsGranted",
+    PERMISSIONS_CLIPBOARD_GRANTED: "permissionsClipboardGranted",
+    REQUEST_HIGHLIGHT_TAB_ID: "requestHighlightTabId",
+    EXTRACT_SETTINGS: "extractSettings"
+  };
+
+  // src/background/storage-manager.js
+  var StorageManager = class {
+    // Save data to chrome.storage.local
+    static save(key, value) {
+      try {
+        if (chrome && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ [key]: value }, () => {
+            if (chrome.runtime.lastError) {
+              console.error("Storage save error:", chrome.runtime.lastError);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error saving to storage:", error);
+      }
+    }
+    // Get all storage keys
+    static async getAllKeys() {
+      return new Promise((resolve) => {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.get(null, (items) => {
+              const keys = Object.keys(items);
+              resolve(keys);
+            });
+          } else {
+            resolve([]);
+          }
+        } catch (error) {
+          console.error("Error getting all keys:", error);
+          resolve([]);
+        }
+      });
+    }
+    // Retrieve data by key
+    static async retrieve(key) {
+      return new Promise((resolve) => {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.get([key], (result) => {
+              if (result[key] !== void 0) {
+                resolve(result[key]);
+              } else {
+                resolve(null);
+              }
+            });
+          } else {
+            resolve(null);
+          }
+        } catch (error) {
+          console.error("Error retrieving from storage:", error);
+          resolve(null);
+        }
+      });
+    }
+    // Remove data by key
+    static async remove(key) {
+      return new Promise((resolve) => {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.remove(key, () => {
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        } catch (error) {
+          console.error("Error removing from storage:", error);
+          resolve();
+        }
+      });
+    }
+    // Remove any keys matching pattern
+    static async removeAny(pattern) {
+      return new Promise(async (resolve) => {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            const allKeys = await this.getAllKeys();
+            const keysToRemove = allKeys.filter((key) => key.includes(pattern));
+            if (keysToRemove.length === 0) {
+              resolve();
+              return;
+            }
+            chrome.storage.local.remove(keysToRemove, () => {
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        } catch (error) {
+          console.error("Error removing keys by pattern:", error);
+          resolve();
+        }
+      });
+    }
+    // Clear all storage data
+    static clearAll() {
+      try {
+        if (chrome && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.clear(() => {
+            if (chrome.runtime.lastError) {
+              console.error("Storage clear error:", chrome.runtime.lastError);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error clearing storage:", error);
+      }
+    }
+    // Batch operations
+    static async getMultiple(keys) {
+      return new Promise((resolve) => {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.get(keys, (result) => {
+              resolve(result);
+            });
+          } else {
+            resolve({});
+          }
+        } catch (error) {
+          console.error("Error getting multiple keys:", error);
+          resolve({});
+        }
+      });
+    }
+    // Save multiple key-value pairs
+    static saveMultiple(items) {
+      try {
+        if (chrome && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set(items, () => {
+            if (chrome.runtime.lastError) {
+              console.error("Storage save multiple error:", chrome.runtime.lastError);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error saving multiple items:", error);
+      }
+    }
+    // Listen for storage changes
+    static addListener(callback) {
+      if (chrome && chrome.storage && chrome.storage.onChanged) {
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+          if (areaName === "local") {
+            callback(changes);
+          }
+        });
+      }
+    }
+    // Get storage size info
+    static async getBytesInUse(keys = null) {
+      return new Promise((resolve) => {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local && chrome.storage.local.getBytesInUse) {
+            chrome.storage.local.getBytesInUse(keys, (bytesInUse) => {
+              resolve(bytesInUse);
+            });
+          } else {
+            resolve(0);
+          }
+        } catch (error) {
+          console.error("Error getting storage size:", error);
+          resolve(0);
+        }
+      });
+    }
+  };
+  var storage_manager_default = StorageManager;
+
+  // src/background/permission-manager.js
+  var PermissionManager = class {
+    // Check and request all URLs permission
+    static requestAllUrlsPermission({ onSuccess, onFailure }) {
+      chrome.permissions.contains({
+        permissions: [],
+        origins: ["<all_urls>"]
+      }, (hasPermission) => {
+        if (hasPermission) {
+          storage_manager_default.save(StorageKeys.PERMISSIONS_GRANTED, true);
+          onSuccess();
+        } else {
+          chrome.permissions.request({
+            permissions: [],
+            origins: ["<all_urls>"]
+          }, (granted) => {
+            const error = chrome.runtime.lastError;
+            if (error) {
+              if (error.message.includes("user gesture")) {
+                chrome.runtime.openOptionsPage();
+              }
+              onFailure();
+              return;
+            }
+            if (granted) {
+              storage_manager_default.save(StorageKeys.PERMISSIONS_GRANTED, true);
+              onSuccess();
+            } else {
+              onFailure();
+            }
+          });
+        }
+      });
+    }
+    // Check and request clipboard write permission
+    static requestClipboardPermission({ onSuccess, onFailure }) {
+      chrome.permissions.contains({
+        permissions: ["clipboardWrite"]
+      }, (hasPermission) => {
+        if (hasPermission) {
+          storage_manager_default.save(StorageKeys.PERMISSIONS_CLIPBOARD_GRANTED, true);
+          onSuccess();
+        } else {
+          chrome.permissions.request({
+            permissions: ["clipboardWrite"]
+          }, (granted) => {
+            if (chrome.runtime.lastError) {
+              onFailure();
+              return;
+            }
+            if (granted) {
+              storage_manager_default.save(StorageKeys.PERMISSIONS_CLIPBOARD_GRANTED, true);
+              onSuccess();
+            } else {
+              onFailure();
+            }
+          });
+        }
+      });
+    }
+    // Check and request downloads permission
+    static requestDownloadsPermission({ onSuccess, onFailure }) {
+      chrome.permissions.contains({
+        permissions: ["downloads"]
+      }, (hasPermission) => {
+        if (hasPermission) {
+          onSuccess();
+        } else {
+          chrome.permissions.request({
+            permissions: ["downloads"]
+          }, (granted) => {
+            if (chrome.runtime.lastError) {
+              onFailure();
+              return;
+            }
+            if (granted) {
+              onSuccess();
+            } else {
+              onFailure();
+            }
+          });
+        }
+      });
+    }
+    // Check if has all URLs permission
+    static async hasAllUrlsPermission() {
+      return new Promise((resolve) => {
+        chrome.permissions.contains({
+          permissions: [],
+          origins: ["<all_urls>"]
+        }, (hasPermission) => {
+          resolve(hasPermission);
+        });
+      });
+    }
+    // Check if has clipboard permission
+    static async hasClipboardPermission() {
+      return new Promise((resolve) => {
+        chrome.permissions.contains({
+          permissions: ["clipboardWrite"]
+        }, (hasPermission) => {
+          resolve(hasPermission);
+        });
+      });
+    }
+    // Check if has downloads permission
+    static async hasDownloadsPermission() {
+      return new Promise((resolve) => {
+        chrome.permissions.contains({
+          permissions: ["downloads"]
+        }, (hasPermission) => {
+          resolve(hasPermission);
+        });
+      });
+    }
+    // Remove permission
+    static async removePermission(permission) {
+      return new Promise((resolve) => {
+        chrome.permissions.remove({
+          permissions: [permission]
+        }, (removed) => {
+          resolve(removed);
+        });
+      });
+    }
+    // Get all granted permissions
+    static async getAllPermissions() {
+      return new Promise((resolve) => {
+        chrome.permissions.getAll((permissions) => {
+          resolve(permissions);
+        });
+      });
+    }
+    // Request multiple permissions at once
+    static async requestMultiplePermissions(permissions, origins = []) {
+      return new Promise((resolve) => {
+        chrome.permissions.request({
+          permissions,
+          origins
+        }, (granted) => {
+          if (chrome.runtime.lastError) {
+            resolve(false);
+          } else {
+            resolve(granted);
+          }
+        });
+      });
+    }
+    // Check multiple permissions at once
+    static async hasMultiplePermissions(permissions, origins = []) {
+      return new Promise((resolve) => {
+        chrome.permissions.contains({
+          permissions,
+          origins
+        }, (hasAll) => {
+          resolve(hasAll);
+        });
+      });
+    }
+  };
+  var permission_manager_default = PermissionManager;
+
+  // src/background/extraction-processor.js
+  var ExtractionProcessor = class {
+    constructor({ request }) {
+      if (!request) {
+        throw new Error("Request object is required");
+      }
+      if (!request.urls || !Array.isArray(request.urls) || request.urls.length === 0) {
+        throw new Error("Request must contain a non-empty array of URLs");
+      }
+      if (!request.elements || !Array.isArray(request.elements) || request.elements.length === 0) {
+        throw new Error("Request must contain a non-empty array of elements to extract");
+      }
+      if (!request.parallelTabs || request.parallelTabs < 1) {
+        throw new Error("Request must specify a positive number of parallel tabs");
+      }
+      this.urls = request.urls;
+      this.elements = request.elements;
+      this.parallelTabs = request.parallelTabs;
+      this.maxWaitTime = request.maxWaitTime || 30;
+      this.delayBeforeExtract = request.delayBeforeExtract || 0;
+      this.requestQueue = [...this.urls];
+      this.activeCount = 0;
+      this.requestStatus = /* @__PURE__ */ new Map();
+      this.outcomes = /* @__PURE__ */ new Map();
+      this.cancelled = false;
+      this.activeTabs = /* @__PURE__ */ new Set();
+    }
+    // Get visual progress bar
+    getProgressBar() {
+      const total = this.urls.length;
+      const completed = this.urls.length - this.requestQueue.length - this.activeCount;
+      const active = this.activeCount;
+      const completedBars = Math.floor(completed / total * 30);
+      const activeBars = Math.floor(active / total * 30);
+      const remainingBars = 30 - completedBars - activeBars;
+      const progressBar = "\u2588".repeat(completedBars) + "\u2592".repeat(activeBars) + "\u2591".repeat(remainingBars);
+      return `[PROGRESS]${progressBar} ${completed}/${total} (${active} active)`;
+    }
+    // Initialize processing
+    initialize() {
+      this.urls.forEach((url) => {
+        this.requestStatus.set(url, {
+          status: "idle",
+          outcome: null
+        });
+      });
+      this.processQueue();
+    }
+    // Process URL queue
+    async processQueue() {
+      while (this.requestQueue.length > 0 && this.activeCount < this.parallelTabs && !this.cancelled) {
+        const url = this.requestQueue.shift();
+        this.activeCount++;
+        this.requestStatus.set(url, {
+          status: "running",
+          outcome: null
+        });
+        this.processRequest(url).then((outcome) => {
+          this.requestStatus.set(url, {
+            status: "complete",
+            outcome
+          });
+          this.outcomes.set(url, outcome);
+        }).catch((error) => {
+          this.requestStatus.set(url, {
+            status: "failed",
+            outcome: error.message
+          });
+          this.outcomes.set(url, {
+            status: "failed",
+            error: error.message
+          });
+        }).finally(() => {
+          this.activeCount--;
+          this.processQueue();
+        });
+      }
+    }
+    // Process single URL
+    async processRequest(url) {
+      if (this.cancelled) {
+        throw new Error("Processing has been cancelled.");
+      }
+      return new Promise((resolve, reject) => {
+        let tabId = null;
+        let timeoutId = null;
+        let intervalId = null;
+        let extractionComplete = false;
+        let extractionStarted = false;
+        const cleanup = () => {
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          if (tabId !== null) {
+            this.activeTabs.delete(tabId);
+            chrome.tabs.remove(tabId, () => {
+              if (chrome.runtime.lastError) {
+              }
+            });
+          }
+        };
+        const extractData = (elements) => {
+          const results = [];
+          elements.forEach((element) => {
+            if (element.type === "emails") {
+              const bodyText = document.body.innerHTML.replace(/\s+/g, " ").trim();
+              const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+              const matches = bodyText.match(emailRegex) || [];
+              const uniqueEmails = {};
+              const validEmails = matches.map((email) => email.toLowerCase()).filter((email) => {
+                if (!email || email.length > 254)
+                  return false;
+                if (email.charAt(0) === "." || email.charAt(email.length - 1) === ".")
+                  return false;
+                emailRegex.lastIndex = 0;
+                if (!emailRegex.test(email))
+                  return false;
+                if (!uniqueEmails[email]) {
+                  uniqueEmails[email] = true;
+                  return true;
+                }
+                return false;
+              });
+              if (validEmails.length) {
+                results.push({
+                  id: element.elementId,
+                  name: element.name,
+                  type: element.type,
+                  data: validEmails,
+                  selectorType: "regex"
+                });
+              } else {
+                results.push({
+                  id: element.elementId,
+                  name: element.name,
+                  type: element.type,
+                  data: null,
+                  error: "No emails found"
+                });
+              }
+              return;
+            }
+            const sortedSelectors = element.selectors.sort((a, b) => b.order - a.order);
+            let extractedData = null;
+            for (const selector of sortedSelectors) {
+              let targetElement;
+              try {
+                const elements2 = document.querySelectorAll(selector.selector);
+                targetElement = elements2[selector.index];
+              } catch (e) {
+                continue;
+              }
+              if (targetElement) {
+                switch (element.type) {
+                  case "text":
+                    extractedData = targetElement.innerText?.trim();
+                    break;
+                  case "image-url":
+                    extractedData = targetElement.src;
+                    break;
+                  case "link-url":
+                    extractedData = targetElement.href;
+                    break;
+                }
+                if (extractedData) {
+                  results.push({
+                    id: element.elementId,
+                    name: element.name,
+                    type: element.type,
+                    data: extractedData,
+                    selectorType: selector.type
+                  });
+                  break;
+                }
+              }
+            }
+            if (!extractedData) {
+              results.push({
+                id: element.elementId,
+                name: element.name,
+                type: element.type,
+                selector: null,
+                data: null,
+                error: "No data found"
+              });
+            }
+          });
+          return results;
+        };
+        const checkAndExtract = () => {
+          if (extractionComplete) {
+            clearInterval(intervalId);
+            return;
+          }
+          if (!extractionStarted) {
+            setTimeout(() => {
+              if (!extractionComplete) {
+                extractionStarted = true;
+              }
+            }, this.delayBeforeExtract * 1e3);
+            return;
+          }
+          chrome.scripting.executeScript({
+            target: { tabId },
+            func: extractData,
+            args: [this.elements]
+          }, (results) => {
+            if (extractionComplete)
+              return;
+            if (chrome.runtime.lastError) {
+              extractionComplete = true;
+              clearInterval(intervalId);
+              reject(new Error(chrome.runtime.lastError.message));
+              cleanup();
+              return;
+            }
+            if (results && results[0] && results[0].result) {
+              const extractedData = results[0].result;
+              const hasValidData = extractedData.some((item) => item.data !== null);
+              if (hasValidData) {
+                extractionComplete = true;
+                clearInterval(intervalId);
+                resolve(extractedData);
+                cleanup();
+              }
+            }
+          });
+        };
+        chrome.tabs.create({ url, active: false }, (tab) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+          tabId = tab.id;
+          this.activeTabs.add(tabId);
+          chrome.tabs.onUpdated.addListener(function listener(updatedTabId, changeInfo) {
+            if (updatedTabId === tabId && changeInfo.status === "complete") {
+              chrome.tabs.onUpdated.removeListener(listener);
+              timeoutId = setTimeout(() => {
+                reject(new Error("Max wait time exceeded"));
+                cleanup();
+              }, this.maxWaitTime * 1e3);
+              intervalId = setInterval(checkAndExtract, 1e3);
+            }
+          });
+        });
+      });
+    }
+    // Cancel all processing
+    cancel() {
+      this.cancelled = true;
+      this.requestQueue = [];
+      this.activeTabs.forEach((tabId) => {
+        chrome.tabs.remove(tabId, () => {
+          if (chrome.runtime.lastError) {
+          }
+        });
+      });
+      this.activeTabs.clear();
+      this.requestStatus.forEach((status, url) => {
+        if (status.status === "running" || status.status === "idle") {
+          this.requestStatus.set(url, {
+            status: "cancelled",
+            outcome: "Processing was cancelled."
+          });
+        }
+      });
+    }
+    // Get status of all requests
+    getStatus() {
+      const statusArray = Array.from(this.requestStatus.entries()).map(([url, status]) => ({
+        url,
+        ...status
+      }));
+      return statusArray;
+    }
+    // Get extraction outcomes
+    getOutcomes() {
+      return this.outcomes;
+    }
+  };
+  var extraction_processor_default = ExtractionProcessor;
+
+  // src/background/image-downloader.js
+  var ImageDownloader = class {
+    // Download multiple images
+    static async downloadImages({ images, folder = "panda-images" }) {
+      if (!images || images.length === 0) {
+        return;
+      }
+      const sanitizeFilename = (name) => {
+        return name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+      };
+      const downloadBatch = (imageUrls) => {
+        const timestamp = Date.now();
+        imageUrls.forEach((url, index) => {
+          let extension = url.split(".").pop().split(/[#?]/)[0];
+          if (!extension || extension.length > 5) {
+            extension = "png";
+          }
+          const sanitizedFolder = sanitizeFilename(folder);
+          const filename = `${sanitizedFolder}/${timestamp}_${index}.${extension}`;
+          chrome.downloads.download({
+            url,
+            filename,
+            saveAs: false
+          }, (downloadId) => {
+            if (chrome.runtime.lastError) {
+              console.error(`Error downloading ${url}:`, chrome.runtime.lastError);
+            }
+          });
+        });
+      };
+      const batchSize = 10;
+      const processBatches = async () => {
+        for (let i = 0; i < images.length; i += batchSize) {
+          const batch = images.slice(i, i + batchSize);
+          downloadBatch(batch);
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      };
+      await processBatches();
+    }
+    // Download single image
+    static async downloadImage({ url, filename }) {
+      return new Promise((resolve, reject) => {
+        chrome.downloads.download({
+          url,
+          filename,
+          saveAs: false
+        }, (downloadId) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(downloadId);
+          }
+        });
+      });
+    }
+    // Monitor download progress
+    static monitorDownload(downloadId) {
+      return new Promise((resolve, reject) => {
+        const checkDownload = () => {
+          chrome.downloads.search({ id: downloadId }, (downloads) => {
+            if (downloads.length === 0) {
+              reject(new Error("Download not found"));
+              return;
+            }
+            const download = downloads[0];
+            if (download.state === "complete") {
+              resolve(download);
+            } else if (download.state === "interrupted") {
+              reject(new Error(`Download interrupted: ${download.error}`));
+            } else {
+              setTimeout(checkDownload, 100);
+            }
+          });
+        };
+        checkDownload();
+      });
+    }
+    // Get download history
+    static async getDownloadHistory(query = {}) {
+      return new Promise((resolve) => {
+        chrome.downloads.search(query, (downloads) => {
+          resolve(downloads);
+        });
+      });
+    }
+    // Clear download history
+    static async clearDownloadHistory() {
+      const downloads = await this.getDownloadHistory();
+      downloads.forEach((download) => {
+        chrome.downloads.erase({ id: download.id });
+      });
+    }
+    // Pause download
+    static async pauseDownload(downloadId) {
+      return new Promise((resolve, reject) => {
+        chrome.downloads.pause(downloadId, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+    // Resume download
+    static async resumeDownload(downloadId) {
+      return new Promise((resolve, reject) => {
+        chrome.downloads.resume(downloadId, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+    // Cancel download
+    static async cancelDownload(downloadId) {
+      return new Promise((resolve, reject) => {
+        chrome.downloads.cancel(downloadId, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+    // Open downloaded file
+    static async openDownload(downloadId) {
+      return new Promise((resolve, reject) => {
+        chrome.downloads.open(downloadId, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+    // Show download in folder
+    static showDownloadInFolder(downloadId) {
+      chrome.downloads.show(downloadId);
+    }
+    // Accept danger and download
+    static async acceptDanger(downloadId) {
+      return new Promise((resolve, reject) => {
+        chrome.downloads.acceptDanger(downloadId, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+  };
+  var image_downloader_default = ImageDownloader;
+
+  // src/background/message-handlers.js
+  var activeExtractions = /* @__PURE__ */ new Map();
+  function setupMessageHandlers() {
+    if (typeof chrome === "undefined" || !chrome.runtime) {
+      console.error("Chrome runtime API not available");
+      return;
+    }
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      console.log("Background received message:", request);
+      switch (request.action) {
+        case "extract-data":
+          handleExtractData(request, sender, sendResponse);
+          break;
+        case "save-results":
+          handleSaveResults(request, sender, sendResponse);
+          break;
+        case "get-settings":
+          handleGetSettings(request, sender, sendResponse);
+          break;
+        case "update-settings":
+          handleUpdateSettings(request, sender, sendResponse);
+          break;
+        case "download-data":
+          handleDownloadData(request, sender, sendResponse);
+          break;
+        case "element-selected":
+          handleElementSelected(request, sender, sendResponse);
+          break;
+        case "content-load-error":
+          console.error("Content script failed to load:", request.error);
+          sendResponse({ status: "acknowledged" });
+          break;
+        case MessageActions.EXTRACT_EMAILS:
+          handleEmailExtraction(request, sender, sendResponse);
+          return true;
+        case MessageActions.EXTRACT_EMAILS_STOP:
+          handleEmailExtractionStop(request, sender, sendResponse);
+          break;
+        case "page-details-start":
+          handlePageDetailsStart(request, sender, sendResponse);
+          return true;
+        case "page-details-highlight":
+          handlePageDetailsHighlight(request, sender, sendResponse);
+          return true;
+        case "page-details-selected":
+          handlePageDetailsSelected(request, sender, sendResponse);
+          break;
+        case "page-details-extract":
+          handlePageDetailsExtract(request, sender, sendResponse);
+          return true;
+        case "stop-page-details-extraction":
+          handleStopPageDetailsExtraction(request, sender, sendResponse);
+          break;
+        default:
+          console.warn("Unknown message action:", request.action);
+          sendResponse({ status: "unknown-action" });
+      }
+      return true;
+    });
+    chrome.runtime.onConnect.addListener((port) => {
+      console.log("Port connected:", port.name);
+      port.onDisconnect.addListener(() => {
+        if (chrome.runtime.lastError) {
+          console.warn("Port disconnected with error:", chrome.runtime.lastError.message);
+        }
+      });
+    });
+    if (chrome.runtime.onSuspend) {
+      chrome.runtime.onSuspend.addListener(() => {
+        activeExtractions.forEach((processor) => processor.cancel());
+        activeExtractions.clear();
+      });
+    }
+  }
+  function handleExtractData(request, sender, sendResponse) {
+    const { url, selector, options } = request.data || {};
+    console.log("Extracting data from:", url, "with selector:", selector);
+    setTimeout(() => {
+      sendResponse({
+        status: "success",
+        data: {
+          extractedCount: 0,
+          results: []
+        }
+      });
+    }, 100);
+  }
+  function handleSaveResults(request, sender, sendResponse) {
+    const { results } = request.data || {};
+    console.log("Saving results:", results);
+    chrome.storage.local.set({
+      lastResults: results,
+      lastSaveTime: (/* @__PURE__ */ new Date()).toISOString()
+    }, () => {
+      if (chrome.runtime.lastError) {
+        sendResponse({
+          status: "error",
+          error: chrome.runtime.lastError.message
+        });
+      } else {
+        sendResponse({
+          status: "success"
+        });
+      }
+    });
+  }
+  function handleGetSettings(request, sender, sendResponse) {
+    chrome.storage.sync.get(["settings"], (result) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({
+          status: "error",
+          error: chrome.runtime.lastError.message
+        });
+      } else {
+        sendResponse({
+          status: "success",
+          settings: result.settings || {}
+        });
+      }
+    });
+  }
+  function handleUpdateSettings(request, sender, sendResponse) {
+    const { settings } = request.data || {};
+    chrome.storage.sync.set({ settings }, () => {
+      if (chrome.runtime.lastError) {
+        sendResponse({
+          status: "error",
+          error: chrome.runtime.lastError.message
+        });
+      } else {
+        sendResponse({
+          status: "success"
+        });
+      }
+    });
+  }
+  function handleDownloadData(request, sender, sendResponse) {
+    const { data, format, filename } = request.data || {};
+    console.log("Downloading data in format:", format);
+    let blob;
+    let mimeType;
+    switch (format) {
+      case "csv":
+        mimeType = "text/csv";
+        blob = new Blob([data], { type: mimeType });
+        break;
+      case "json":
+        mimeType = "application/json";
+        blob = new Blob([JSON.stringify(data, null, 2)], { type: mimeType });
+        break;
+      default:
+        sendResponse({
+          status: "error",
+          error: "Unsupported format"
+        });
+        return;
+    }
+    const url = URL.createObjectURL(blob);
+    chrome.downloads.download({
+      url,
+      filename: filename || `extraction_${Date.now()}.${format}`,
+      saveAs: true
+    }, (downloadId) => {
+      URL.revokeObjectURL(url);
+      if (chrome.runtime.lastError) {
+        sendResponse({
+          status: "error",
+          error: chrome.runtime.lastError.message
+        });
+      } else {
+        sendResponse({
+          status: "success",
+          downloadId
+        });
+      }
+    });
+  }
+  function handleElementSelected(request, sender, sendResponse) {
+    const { extractables, element } = request.data || {};
+    console.log("Element selected:", element, "Extractables:", extractables);
+    chrome.storage.local.set({
+      lastSelectedElement: {
+        element,
+        extractables,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        tabId: sender.tab?.id,
+        url: sender.tab?.url
+      }
+    }, () => {
+      sendResponse({
+        status: "success"
+      });
+    });
+  }
+  async function handleEmailExtraction(request, sender, sendResponse) {
+    console.log("[Background] Starting email extraction for URLs:", request.urls);
+    const { urls, config } = request;
+    const parallelTabs = config?.parallelTabs || 1;
+    const maxWaitTime = (config?.maxWaitTime || 30) * 1e3;
+    const delayBeforeExtract = (config?.delayBeforeExtract || 0) * 1e3;
+    const allEmails = /* @__PURE__ */ new Set();
+    let processedCount = 0;
+    try {
+      for (let i = 0; i < urls.length; i += parallelTabs) {
+        const batch = urls.slice(i, i + parallelTabs);
+        const promises = batch.map(async (url) => {
+          try {
+            const tab = await chrome.tabs.create({ url, active: false });
+            await new Promise((resolve, reject) => {
+              const startTime = Date.now();
+              const checkTab = (tabId, changeInfo) => {
+                if (tabId === tab.id && changeInfo.status === "complete") {
+                  chrome.tabs.onUpdated.removeListener(checkTab);
+                  resolve();
+                } else if (Date.now() - startTime > maxWaitTime) {
+                  chrome.tabs.onUpdated.removeListener(checkTab);
+                  reject(new Error("Tab load timeout"));
+                }
+              };
+              chrome.tabs.onUpdated.addListener(checkTab);
+            });
+            if (delayBeforeExtract > 0) {
+              await new Promise((resolve) => setTimeout(resolve, delayBeforeExtract));
+            }
+            const results = await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              func: () => {
+                const emails = /* @__PURE__ */ new Set();
+                const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+                const walker = document.createTreeWalker(
+                  document.body,
+                  NodeFilter.SHOW_TEXT,
+                  {
+                    acceptNode: (node2) => {
+                      const parent = node2.parentElement;
+                      if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) {
+                        return NodeFilter.FILTER_REJECT;
+                      }
+                      return NodeFilter.FILTER_ACCEPT;
+                    }
+                  }
+                );
+                let node;
+                while (node = walker.nextNode()) {
+                  const text = node.textContent;
+                  if (text) {
+                    const matches = text.match(emailRegex) || [];
+                    matches.forEach((email) => emails.add(email.toLowerCase()));
+                  }
+                }
+                document.querySelectorAll('a[href^="mailto:"]').forEach((link) => {
+                  const email = link.href.replace("mailto:", "").split("?")[0];
+                  if (email && emailRegex.test(email)) {
+                    emails.add(email.toLowerCase());
+                  }
+                });
+                return Array.from(emails);
+              }
+            });
+            if (results[0]?.result) {
+              results[0].result.forEach((email) => allEmails.add(email));
+            }
+            await chrome.tabs.remove(tab.id);
+            processedCount++;
+            chrome.tabs.sendMessage(sender.tab.id, {
+              action: "email-extraction-progress",
+              processedUrls: processedCount,
+              totalUrls: urls.length
+            }).catch(() => {
+            });
+          } catch (error) {
+            console.error(`[Background] Error extracting emails from ${url}:`, error);
+            processedCount++;
+          }
+        });
+        await Promise.all(promises);
+      }
+      sendResponse({
+        success: true,
+        emails: Array.from(allEmails)
+      });
+    } catch (error) {
+      console.error("[Background] Email extraction error:", error);
+      sendResponse({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+  function handleEmailExtractionStop(request, sender, sendResponse) {
+    console.log("[Background] Email extraction stop requested");
+    sendResponse({ success: true });
+    return false;
+  }
+  async function handlePageDetailsStart(request, sender, sendResponse) {
+    console.log("[Background] Page details start request:", request);
+    try {
+      const { urls } = request;
+      if (!urls || urls.length === 0) {
+        sendResponse({ success: false, error: "No URLs provided" });
+        return;
+      }
+      await storage_manager_default.save("pageDetailsUrls", urls);
+      const tab = await chrome.tabs.create({
+        url: urls[0],
+        active: true
+      });
+      await new Promise((resolve) => {
+        const listener = (tabId, changeInfo) => {
+          if (tabId === tab.id && changeInfo.status === "complete") {
+            chrome.tabs.onUpdated.removeListener(listener);
+            resolve();
+          }
+        };
+        chrome.tabs.onUpdated.addListener(listener);
+      });
+      await chrome.scripting.insertCSS({
+        target: { tabId: tab.id },
+        files: ["bundle/styles.css", "bundle/layers.css"]
+      });
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["bundle/selector.bundle.js"]
+      });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await chrome.tabs.sendMessage(tab.id, {
+        action: "init-selector",
+        mode: "page-details"
+      });
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("[Background] Page details start error:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+  async function handlePageDetailsHighlight(request, sender, sendResponse) {
+    console.log("[Background] Page details highlight request:", request);
+    try {
+      const { urls } = request.data || {};
+      if (!urls || urls.length === 0) {
+        sendResponse({ success: false, error: "No URLs provided" });
+        return;
+      }
+      const fullUrls = await storage_manager_default.retrieve("pageDetailsUrls") || urls;
+      await storage_manager_default.save("pageDetailsUrls", fullUrls);
+      await storage_manager_default.save("pageDetailsRequestingTabId", sender.tab.id);
+      await storage_manager_default.save("pageDetailsMode", true);
+      const newTab = await chrome.tabs.create({
+        url: urls[0],
+        active: true
+      });
+      const timeout = new Promise(
+        (_, reject) => setTimeout(() => reject(new Error("Timeout waiting for page to load")), 3e4)
+      );
+      try {
+        await Promise.race([
+          new Promise((resolve) => {
+            const listener = (tabId, changeInfo) => {
+              if (tabId === newTab.id && changeInfo.status === "complete") {
+                chrome.tabs.onUpdated.removeListener(listener);
+                resolve();
+              }
+            };
+            chrome.tabs.onUpdated.addListener(listener);
+          }),
+          timeout
+        ]);
+      } catch (timeoutError) {
+        console.error("[Background] Timeout waiting for page to load");
+        await chrome.tabs.remove(newTab.id).catch(() => {
+        });
+        sendResponse({ success: false, error: "Page load timeout" });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1e3));
+      try {
+        await chrome.tabs.get(newTab.id);
+      } catch (error) {
+        console.error("[Background] Tab was closed");
+        sendResponse({ success: false, error: "Tab was closed" });
+        return;
+      }
+      try {
+        await chrome.scripting.insertCSS({
+          target: { tabId: newTab.id },
+          files: ["bundle/layers.css", "bundle/styles.css"]
+        });
+      } catch (cssError) {
+        console.error("[Background] CSS injection error:", cssError);
+      }
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: newTab.id },
+          files: ["bundle/selector.bundle.js"]
+        });
+        console.log("[Background] Selector script injected successfully");
+      } catch (scriptError) {
+        console.error("[Background] Script injection error:", scriptError);
+        await chrome.tabs.remove(newTab.id).catch(() => {
+        });
+        sendResponse({ success: false, error: "Failed to inject selector script" });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("[Background] Page details highlight error:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+  async function handlePageDetailsSelected(request, sender, sendResponse) {
+    console.log("[Background] Page details element selected:", request);
+    try {
+      await storage_manager_default.save("pageDetailsElements", request.data?.selectors || []);
+      const requestingTabId = await storage_manager_default.retrieve("pageDetailsRequestingTabId");
+      if (requestingTabId) {
+        chrome.tabs.sendMessage(requestingTabId, {
+          action: "page-details-selected-complete",
+          data: request.data
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error("[Background] Failed to send elements to requesting tab:", chrome.runtime.lastError);
+          }
+        });
+      }
+      chrome.tabs.remove(sender.tab.id, () => {
+        if (chrome.runtime.lastError) {
+          console.error("[Background] Failed to close selector tab:", chrome.runtime.lastError);
+        }
+      });
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("[Background] Page details selection error:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+  async function handlePageDetailsExtract(request, sender, sendResponse) {
+    console.log("[Background] Page details extract request:", request);
+    try {
+      const { urls, elements, config } = request;
+      const processor = new extraction_processor_default({
+        request: {
+          urls,
+          elements,
+          parallelTabs: config?.parallelTabs || 1,
+          maxWaitTime: config?.maxWaitTime || 30,
+          delayBeforeExtract: config?.delayBeforeExtract || 0
+        }
+      });
+      activeExtractions.set("page-details", processor);
+      processor.initialize();
+      const statusInterval = setInterval(() => {
+        const status = processor.getStatus();
+        chrome.tabs.sendMessage(sender.tab.id, {
+          action: "status-update-extract",
+          data: status
+        }).catch(() => {
+        });
+        const allComplete = status.every(
+          (item) => ["complete", "failed", "cancelled"].includes(item.status)
+        );
+        if (allComplete) {
+          clearInterval(statusInterval);
+          const outcomes = processor.getOutcomes();
+          console.log("[Background] Extraction outcomes:", outcomes);
+          const results = [];
+          for (const [url, outcome] of outcomes) {
+            console.log("[Background] Processing outcome for URL:", url, "Outcome:", outcome);
+            if (outcome && Array.isArray(outcome)) {
+              const row = { url };
+              outcome.forEach((item) => {
+                if (item?.name && item?.data) {
+                  row[item.name] = item.data;
+                }
+              });
+              if (Object.keys(row).length > 1) {
+                results.push(row);
+              }
+            }
+          }
+          console.log("[Background] Final extraction results:", results);
+          activeExtractions.delete("page-details");
+          sendResponse({ success: true, results });
+        }
+      }, 1e3);
+      setTimeout(() => {
+        clearInterval(statusInterval);
+        if (activeExtractions.has("page-details")) {
+          activeExtractions.delete("page-details");
+          sendResponse({ success: false, error: "Extraction timeout" });
+        }
+      }, (config?.maxWaitTime || 30) * 1e3 * urls.length);
+    } catch (error) {
+      console.error("[Background] Page details extraction error:", error);
+      sendResponse({ success: false, error: error.message });
+    } finally {
+      activeExtractions.delete("page-details");
+    }
+  }
+  function handleStopPageDetailsExtraction(request, sender, sendResponse) {
+    const processor = activeExtractions.get("page-details");
+    if (processor) {
+      processor.cancel();
+      activeExtractions.delete("page-details");
+    }
+    sendResponse({ success: true });
+  }
+  var message_handlers_default = setupMessageHandlers;
+
+  // src/analytics/event-tracker.js
+  var EventTracker = class {
+    constructor() {
+      console.log("[EXTRACTOR-GPT] Analytics disabled - using no-op implementation");
+    }
+    // All methods are no-ops that just log in development
+    trackPageView(page, properties = {}) {
+      console.debug("[Analytics] Page view:", page, properties);
+    }
+    trackUserAction(action, properties = {}) {
+      console.debug("[Analytics] User action:", action, properties);
+    }
+    trackError(error, context = "") {
+      console.debug("[Analytics] Error:", error, context);
+    }
+    trackExtraction(type, properties = {}) {
+      console.debug("[Analytics] Extraction:", type, properties);
+    }
+    track(eventType, properties = {}) {
+      console.debug("[Analytics] Track:", eventType, properties);
+    }
+    async sendAnalytics(event) {
+    }
+    async flushQueue() {
+    }
+    async getSessionId() {
+      return "local-session-" + Date.now();
+    }
+    async getUserId() {
+      return "local-user";
+    }
+    getBrowserInfo() {
+      return {
+        name: "Chrome",
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        platform: navigator.platform
+      };
+    }
+    generateId() {
+      return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+    trackExtractionStarted({ urls, elements, type }) {
+      console.debug("[Analytics] Extraction started:", { urls, elements, type });
+    }
+    trackExtractionCompleted({ urls, elements, type, duration, rowCount }) {
+      console.debug("[Analytics] Extraction completed:", { urls, elements, type, duration, rowCount });
+    }
+    trackExport({ format, rowCount }) {
+      console.debug("[Analytics] Export:", { format, rowCount });
+    }
+    trackFeatureUsage(feature) {
+      console.debug("[Analytics] Feature usage:", feature);
+    }
+    async setUserId(userId) {
+      console.debug("[Analytics] Set user ID:", userId);
+    }
+    async clearUserId() {
+      console.debug("[Analytics] Clear user ID");
+    }
+    trackTiming({ category, variable, time, label }) {
+      console.debug("[Analytics] Timing:", { category, variable, time, label });
+    }
+  };
+  var eventTracker = new EventTracker();
+  var eventTrackerWrapper = {
+    trackPageView: (pageName) => eventTracker.trackPageView(pageName),
+    trackExtractionStarted: (data) => eventTracker.trackExtractionStarted(data),
+    trackExtractionCompleted: (data) => eventTracker.trackExtractionCompleted(data),
+    trackExport: (data) => eventTracker.trackExport(data),
+    trackError: (data) => eventTracker.trackError(data),
+    trackFeatureUsage: (feature) => eventTracker.trackFeatureUsage(feature),
+    trackUserAction: (action, data) => eventTracker.trackUserAction(action, data),
+    setUserId: async (userId) => await eventTracker.setUserId(userId),
+    clearUserId: async () => await eventTracker.clearUserId(),
+    trackTiming: (data) => eventTracker.trackTiming(data)
+  };
+  var event_tracker_default = eventTrackerWrapper;
+
+  // src/service-worker.js
+  var tabInjectionStatus = /* @__PURE__ */ new Map();
+  var injectContentScripts = async (tab) => {
+    const tabId = tab.id;
+    if (tabInjectionStatus.get(tabId) === "injecting") {
+      console.log("[SERVICE-WORKER] Already injecting scripts for tab", tabId);
+      return;
+    }
+    try {
+      tabInjectionStatus.set(tabId, "checking");
+      const response = await chrome.tabs.sendMessage(tabId, { action: "ping" }).catch(() => null);
+      if (response && response.status === "pong") {
+        console.log("[SERVICE-WORKER] Content script already loaded for tab", tabId, ", sending open message...");
+        tabInjectionStatus.set(tabId, "loaded");
+        try {
+          const openResponse = await chrome.tabs.sendMessage(tabId, { action: "open" });
+          console.log("[SERVICE-WORKER] Open message sent successfully, response:", openResponse);
+        } catch (error) {
+          console.error("[SERVICE-WORKER] Error sending open message:", error);
+        }
+        return;
+      }
+    } catch (error) {
+      console.log("[SERVICE-WORKER] Content script not loaded, will inject...");
+    }
+    console.log("[SERVICE-WORKER] Injecting scripts for tab", tabId);
+    tabInjectionStatus.set(tabId, "injecting");
+    try {
+      await chrome.scripting.insertCSS({
+        target: { tabId },
+        files: ["bundle/layers.css", "bundle/styles.css"]
+      });
+      console.log("[SERVICE-WORKER] CSS injected successfully");
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["bundle/main.bundle.js"]
+      });
+      console.log("[SERVICE-WORKER] JavaScript injected successfully");
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      try {
+        const openResponse = await chrome.tabs.sendMessage(tabId, { action: "open" });
+        console.log("[SERVICE-WORKER] Open message sent successfully after injection, response:", openResponse);
+        tabInjectionStatus.set(tabId, "loaded");
+      } catch (error) {
+        console.error("[SERVICE-WORKER] Error sending open message after injection:", error);
+        tabInjectionStatus.set(tabId, "error");
+      }
+    } catch (error) {
+      console.error("[SERVICE-WORKER] Error injecting scripts:", error);
+      tabInjectionStatus.set(tabId, "error");
+      chrome.notifications.create({
+        type: "basic",
+        iconUrl: "assets/icon256.png",
+        title: "ExtractorGPT Error",
+        message: "Failed to inject scripts. Please refresh the page and try again."
+      });
+    }
+  };
+  (function() {
+    "use strict";
+    console.log("[EXTRACTOR-GPT] Service worker initializing...");
+    self.__extractorGPT = {
+      storage: new storage_manager_default(),
+      activeExtractions: /* @__PURE__ */ new Map(),
+      requestHighlightTabId: null
+    };
+    message_handlers_default();
+    chrome.action.onClicked.addListener((tab) => {
+      console.log("[SERVICE-WORKER] Extension icon clicked for tab:", tab.id);
+      injectContentScripts(tab);
+    });
+    chrome.tabs.onRemoved.addListener((tabId) => {
+      tabInjectionStatus.delete(tabId);
+    });
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+      if (changeInfo.status === "loading") {
+        tabInjectionStatus.delete(tabId);
+      }
+    });
+    chrome.runtime.onInstalled.addListener((details) => {
+      if (details.reason === "install") {
+        event_tracker_default.trackUserAction("extension_installed", {
+          version: chrome.runtime.getManifest().version
+        });
+      } else if (details.reason === "update") {
+        event_tracker_default.trackUserAction("extension_updated", {
+          previousVersion: details.previousVersion,
+          version: chrome.runtime.getManifest().version
+        });
+      }
+    });
+    chrome.runtime.onStartup.addListener(() => {
+      console.log("[EXTRACTOR-GPT] Extension startup - cleaning up");
+      self.__extractorGPT.activeExtractions.clear();
+    });
+    console.log("[EXTRACTOR-GPT] Service worker initialized");
+  })();
+})();
+//# sourceMappingURL=service.bundle.js.map

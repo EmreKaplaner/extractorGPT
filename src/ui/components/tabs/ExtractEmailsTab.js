@@ -22,63 +22,10 @@ export function ExtractEmailsTab({ isPro }) {
   const fileInputRef = useRef(null);
   const urlInputRef = useRef(null);
   
-  // Listen for progress updates
-  React.useEffect(() => {
-    const handleMessage = (message) => {
-      if (message.action === 'email-extraction-progress') {
-        setProcessedUrls(message.processedUrls);
-      }
-    };
-    
-    chrome.runtime.onMessage.addListener(handleMessage);
-    
-    return () => {
-      chrome.runtime.onMessage.removeListener(handleMessage);
-    };
-  }, []);
-  
   // Check current page for emails
   React.useEffect(() => {
     checkCurrentPageEmails();
   }, []);
-  
-  // Helper function to check if extension context is valid
-  const isExtensionContextValid = () => {
-    try {
-      return chrome.runtime && chrome.runtime.id;
-    } catch (e) {
-      return false;
-    }
-  };
-  
-  // Helper function to send message with error handling
-  const sendMessageSafely = (message, callback) => {
-    if (!isExtensionContextValid()) {
-      console.error('Extension context invalidated');
-      setError('Extension was updated. Please refresh the page and try again.');
-      setIsExtracting(false);
-      if (callback) callback({ success: false, error: 'Extension context invalidated' });
-      return;
-    }
-    
-    try {
-      chrome.runtime.sendMessage(message, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('Chrome runtime error:', chrome.runtime.lastError);
-          setError('Failed to communicate with extension. Please refresh the page.');
-          setIsExtracting(false);
-          if (callback) callback({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-          if (callback) callback(response);
-        }
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setError('Extension error. Please refresh the page and try again.');
-      setIsExtracting(false);
-      if (callback) callback({ success: false, error: error.message });
-    }
-  };
   
   const checkCurrentPageEmails = () => {
     const emails = new Set();
@@ -197,7 +144,8 @@ export function ExtractEmailsTab({ isPro }) {
     setTotalUrls(urls.length);
     setProcessedUrls(0);
     
-    sendMessageSafely({
+    try {
+      chrome.runtime.sendMessage({
         action: 'extract-emails',
         urls: urls,
         config: {
@@ -206,19 +154,19 @@ export function ExtractEmailsTab({ isPro }) {
           delayBeforeExtract
         }
       }, (response) => {
-      if (response && response.success && response.emails) {
+        if (response && response.emails) {
           setExtractedEmails(response.emails);
           setProcessedUrls(urls.length);
-        if (response.emails.length === 0) {
-          setError('No emails found on the specified pages');
-        }
         } else if (response && response.error) {
           setError(response.error);
-      } else {
-        setError('Failed to extract emails');
         }
         setIsExtracting(false);
       });
+    } catch (err) {
+      console.error('Multi-URL extraction error:', err);
+      setError('Failed to extract emails from multiple URLs');
+      setIsExtracting(false);
+    }
   };
   
   // Extract all found emails
@@ -241,13 +189,13 @@ export function ExtractEmailsTab({ isPro }) {
   };
   
   // Copy emails to clipboard
-  const copyToClipboard = (e) => {
+  const copyToClipboard = () => {
     if (extractedEmails.length === 0) return;
     
     const text = extractedEmails.join('\n');
     navigator.clipboard.writeText(text).then(() => {
       // Show success message
-      const button = e.currentTarget;
+      const button = event.target;
       const originalText = button.textContent;
       button.textContent = 'Copied!';
       setTimeout(() => {
@@ -257,463 +205,530 @@ export function ExtractEmailsTab({ isPro }) {
   };
   
   return (
-    <div style={{ fontSize: '12px' }}>
-      {/* Header Section */}
-      <div style={{ marginBottom: '14px' }}>
+    <div>
+      {/* Current Page Info */}
+      <div style={{
+        marginBottom: '16px',
+        padding: '16px',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '5px',
-          marginBottom: '4px'
+          justifyContent: 'space-between'
         }}>
-          <span style={{ fontSize: '14px' }}>✉️</span>
-          <h2 style={{
-            fontSize: '13px',
-            fontWeight: '600',
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px'
-          }}>
-            Extract Emails
-            {!isPro && (
-              <span style={{
-                fontSize: '9px',
-                padding: '1px 4px',
-                backgroundColor: '#fbbf24',
-                color: '#000',
-                borderRadius: '2px',
-                fontWeight: '600'
-              }}>
-                PRO
-              </span>
-            )}
-          </h2>
-        </div>
-        
-        <p style={{
-          margin: 0,
-          fontSize: '11px',
-          color: 'rgba(255, 255, 255, 0.5)'
-        }}>
-          Found {currentPageEmailCount} email{currentPageEmailCount !== 1 ? 's' : ''} on this page
-        </p>
-      </div>
-      
-      {/* Action Buttons */}
-      <div style={{
-        display: 'flex',
-        gap: '6px',
-        marginBottom: '10px'
-      }}>
-        <button
-          onClick={handleScanPage}
-          disabled={isExtracting}
-          style={{
-            flex: 1,
-            padding: '7px 12px',
-            backgroundColor: '#7c3aed',
-            border: 'none',
-            borderRadius: '4px',
-            color: 'white',
-            fontSize: '12px',
-            fontWeight: '500',
-            cursor: isExtracting ? 'not-allowed' : 'pointer',
-            opacity: isExtracting ? 0.7 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '5px'
-          }}
-        >
-          {isExtracting ? (
-            <>
-              <LoadingSpinner size="small" />
-              Scanning...
-            </>
-          ) : (
-            <>
-              🔍 Scan Page
-            </>
-          )}
-        </button>
-        
-        <button
-          onClick={handleScanPages}
-          disabled={isExtracting || urls.length === 0}
-          style={{
-            flex: 1,
-            padding: '7px 12px',
-            backgroundColor: urls.length > 0 ? '#10b981' : '#6b7280',
-            border: 'none',
-            borderRadius: '4px',
-            color: 'white',
-            fontSize: '12px',
-            fontWeight: '500',
-            cursor: !isExtracting && urls.length > 0 ? 'pointer' : 'not-allowed',
-            opacity: isExtracting ? 0.7 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '5px'
-          }}
-        >
-          {isExtracting ? (
-            <>
-              <LoadingSpinner size="small" />
-              Scanning...
-            </>
-          ) : (
-            <>
-              📄 Scan Pages
-            </>
-          )}
-        </button>
-      </div>
-      
-      {/* Found Emails Section */}
-      {currentPageEmailCount > 0 && (
-        <div style={{ marginBottom: '14px' }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '6px'
+            gap: '12px'
           }}>
             <div style={{
-              fontSize: '11px',
-              color: 'rgba(255, 255, 255, 0.7)',
-              fontWeight: '400'
+              width: '40px',
+              height: '40px',
+              backgroundColor: 'rgba(124, 58, 237, 0.2)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px'
             }}>
-              Found Emails <span style={{ color: 'rgba(255, 255, 255, 0.4)' }}>({currentPageEmailCount} total)</span>
+              ✉️
+            </div>
+            <div>
+              <h2 style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                Extract Emails
+                {!isPro && (
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '2px 6px',
+                    backgroundColor: '#7c3aed',
+                    borderRadius: '4px'
+                  }}>
+                    PRO
+                  </span>
+                )}
+              </h2>
+              <p style={{
+                margin: 0,
+                fontSize: '13px',
+                color: 'rgba(255, 255, 255, 0.6)'
+              }}>
+                Found {currentPageEmailCount} email{currentPageEmailCount !== 1 ? 's' : ''} on this page
+              </p>
+            </div>
+          </div>
+          
+          <div style={{
+            display: 'flex',
+            gap: '8px'
+          }}>
+            <button
+              onClick={handleScanPage}
+              disabled={isExtracting}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#7c3aed',
+                border: 'none',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: isExtracting ? 'not-allowed' : 'pointer',
+                opacity: isExtracting ? 0.7 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {isExtracting ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  Scanning...
+                </>
+              ) : (
+                <>
+                  🔍 Scan Page
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={handleScanPages}
+              disabled={isExtracting || urls.length === 0}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: urls.length > 0 ? '#10b981' : '#4a4a4a',
+                border: 'none',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: !isExtracting && urls.length > 0 ? 'pointer' : 'not-allowed',
+                opacity: isExtracting || urls.length === 0 ? 0.7 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {isExtracting ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  Scanning...
+                </>
+              ) : (
+                <>
+                  📄 Scan Pages
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        
+        {/* Found Emails Preview */}
+        {currentPageEmailCount > 0 && (
+          <div style={{
+            marginTop: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{
+              fontSize: '14px',
+              color: 'rgba(255, 255, 255, 0.8)'
+            }}>
+              <span style={{ fontWeight: '500' }}>Found Emails</span>
+              <span style={{ marginLeft: '8px', color: 'rgba(255, 255, 255, 0.6)' }}>
+                ({currentPageEmailCount} total)
+              </span>
             </div>
             <button
               onClick={handleExtractAll}
               style={{
-                padding: '3px 8px',
+                padding: '6px 12px',
                 backgroundColor: '#10b981',
                 border: 'none',
-                borderRadius: '3px',
+                borderRadius: '6px',
                 color: 'white',
-                fontSize: '10px',
-                fontWeight: '500',
+                fontSize: '13px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '3px'
+                gap: '6px'
               }}
             >
               → Extract All
             </button>
           </div>
-          
-          {foundEmails.length > 0 && (
-            <div>
-              {foundEmails.slice(0, 3).map((email, index) => (
-                <div key={index} style={{ 
-                  fontSize: '11px',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  marginBottom: '2px'
-                }}>
-                  • {email}
-                </div>
-              ))}
-              {foundEmails.length > 3 && (
-                <div style={{ 
-                  fontSize: '11px',
-                  color: 'rgba(255, 255, 255, 0.4)',
-                  marginTop: '2px'
-                }}>
-                  ... and {foundEmails.length - 3} more
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Extract from Multiple URLs Section */}
-      <div>
-        <h3 style={{
-          fontSize: '12px',
-          fontWeight: '500',
-          marginBottom: '8px'
-        }}>
-          Extract from Multiple URLs
-        </h3>
+        )}
         
-        <div style={{ marginBottom: '10px' }}>
+        {foundEmails.length > 0 && foundEmails.length <= 3 && (
           <div style={{
-            display: 'flex',
-            gap: '5px',
-            marginBottom: '6px'
+            marginTop: '12px',
+            padding: '12px',
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontFamily: 'monospace'
           }}>
-            <input
-              ref={urlInputRef}
-              type="text"
-              placeholder="Enter URL (e.g., https://example.com)"
-              style={{
-                flex: 1,
-                padding: '5px 8px',
-                backgroundColor: 'transparent',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '3px',
-                color: 'white',
-                fontSize: '11px',
-                outline: 'none'
-              }}
-              onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
-            />
-            <button
-              onClick={handleAddUrl}
-              style={{
-                padding: '5px 10px',
-                backgroundColor: '#7c3aed',
-                border: 'none',
-                borderRadius: '3px',
-                color: 'white',
-                fontSize: '11px',
-                cursor: 'pointer'
-              }}
-            >
-              Add
-            </button>
+            {foundEmails.map((email, index) => (
+              <div key={index} style={{ marginBottom: index < foundEmails.length - 1 ? '4px' : 0 }}>
+                • {email}
+              </div>
+            ))}
           </div>
-          
+        )}
+      </div>
+      
+      {/* Extract from Multiple URLs */}
+      <div style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderRadius: '12px',
+        padding: '20px',
+        border: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
+        <h3 style={{
+          fontSize: '16px',
+          fontWeight: '500',
+          marginBottom: '16px'
+        }}>
+          Extract Emails
+        </h3>
+        <p style={{
+          fontSize: '13px',
+          color: 'rgba(255, 255, 255, 0.6)',
+          marginBottom: '16px'
+        }}>
+          Extract email addresses from multiple URLs
+        </p>
+        
+        {/* Add URLs Section */}
+        <div style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '12px',
+          cursor: 'pointer'
+        }}
+        onClick={() => setShowUrlSection(!showUrlSection)}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '5px',
-            marginBottom: '8px'
+            justifyContent: 'space-between'
           }}>
-            <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)' }}>or</span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleCSVUpload}
-              style={{ display: 'none' }}
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                padding: '3px 8px',
-                backgroundColor: 'transparent',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '3px',
-                color: 'rgba(255, 255, 255, 0.7)',
-                fontSize: '10px',
-                cursor: 'pointer'
-              }}
-            >
-              📁 Upload CSV
-            </button>
-          </div>
-          
-          {urls.length > 0 && (
-            <div style={{
-              maxHeight: '100px',
-              overflowY: 'auto'
-            }}>
-              {urls.map((url, index) => (
-                <div key={index} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '2px 0',
-                  fontSize: '10px',
-                  color: 'rgba(255, 255, 255, 0.6)'
-                }}>
-                  <span style={{ 
-                    flex: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {url}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveUrl(index)}
-                    style={{
-                      padding: '0 4px',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: '#ef4444',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      marginLeft: '6px'
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+            <div>
+              <h3 style={{
+                margin: 0,
+                fontSize: '15px',
+                fontWeight: '500'
+              }}>
+                Add URLs
+              </h3>
+              <p style={{
+                margin: 0,
+                fontSize: '13px',
+                color: 'rgba(255, 255, 255, 0.6)'
+              }}>
+                Select URLs to extract emails from
+              </p>
             </div>
-          )}
+            <span style={{ 
+              fontSize: '20px',
+              transform: showUrlSection ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s'
+            }}>›</span>
+          </div>
         </div>
+        
+        {showUrlSection && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{
+              padding: '16px',
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '12px'
+              }}>
+                <input
+                  ref={urlInputRef}
+                  type="text"
+                  placeholder="Enter URL (e.g., https://example.com)"
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '6px',
+                    color: 'white',
+                    fontSize: '14px'
+                  }}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
+                />
+                <button
+                  onClick={handleAddUrl}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#7c3aed',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: 'white',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '12px'
+              }}>
+                <span style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)' }}>or</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCSVUpload}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '6px',
+                    color: 'white',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📁 Upload CSV
+                </button>
+              </div>
+              
+              {urls.length > 0 && (
+                <div style={{
+                  maxHeight: '150px',
+                  overflowY: 'auto',
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  borderRadius: '6px',
+                  padding: '8px'
+                }}>
+                  {urls.map((url, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '4px 8px',
+                      fontSize: '13px',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      marginBottom: '4px'
+                    }}>
+                      <span style={{ 
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {url}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveUrl(index);
+                        }}
+                        style={{
+                          padding: '2px 6px',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          color: '#ef4444',
+                          fontSize: '16px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Configuration Section */}
         <div style={{
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          paddingTop: '10px',
-          marginBottom: '10px'
+          marginBottom: '16px'
         }}>
-          <h4 style={{
-            fontSize: '11px',
+          <h3 style={{
+            fontSize: '15px',
             fontWeight: '500',
-            marginBottom: '8px',
-            color: 'rgba(255, 255, 255, 0.8)'
+            marginBottom: '12px'
           }}>
             Configuration
-          </h4>
+          </h3>
           
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px'
+            gap: '12px'
           }}>
             {/* Parallel Tabs */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <label style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)' }}>
-                Parallel Tabs
-              </label>
+            <div>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                justifyContent: 'space-between',
+                marginBottom: '4px'
               }}>
-                <button
-                  onClick={() => setParallelTabs(Math.max(1, parallelTabs - 1))}
-                  style={{
-                    width: '18px',
-                    height: '18px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '2px',
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    cursor: 'pointer',
-                    fontSize: '10px',
-                    lineHeight: '1'
-                  }}
-                >
-                  -
-                </button>
-                <span style={{ 
-                  minWidth: '20px', 
-                  textAlign: 'center', 
-                  fontSize: '10px', 
-                  color: 'rgba(255, 255, 255, 0.7)' 
+                <label style={{ fontSize: '13px' }}>
+                  Parallel Tabs
+                </label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}>
-                  {parallelTabs}
-                </span>
-                <button
-                  onClick={() => setParallelTabs(Math.min(5, parallelTabs + 1))}
-                  style={{
-                    width: '18px',
-                    height: '18px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '2px',
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    cursor: 'pointer',
-                    fontSize: '10px',
-                    lineHeight: '1'
-                  }}
-                >
-                  +
-                </button>
+                  <button
+                    onClick={() => setParallelTabs(Math.max(1, parallelTabs - 1))}
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '4px',
+                      color: 'white',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    -
+                  </button>
+                  <span style={{ minWidth: '30px', textAlign: 'center' }}>{parallelTabs}</span>
+                  <button
+                    onClick={() => setParallelTabs(Math.min(5, parallelTabs + 1))}
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '4px',
+                      color: 'white',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
+              <p style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', margin: 0 }}>
+                Extract faster with multiple tabs
+              </p>
             </div>
             
             {/* Max Wait Time */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <label style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)' }}>
-                Max Wait Time
-              </label>
+            <div>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                justifyContent: 'space-between',
+                marginBottom: '4px'
               }}>
-                <input
-                  type="number"
-                  value={maxWaitTime}
-                  onChange={(e) => setMaxWaitTime(parseInt(e.target.value) || 0)}
-                  style={{
-                    width: '45px',
-                    padding: '2px 4px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '2px',
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: '10px',
-                    textAlign: 'center',
-                    outline: 'none'
-                  }}
-                />
-                <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.4)' }}>seconds</span>
+                <label style={{ fontSize: '13px' }}>Max Wait Time</label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <input
+                    type="number"
+                    value={maxWaitTime}
+                    onChange={(e) => setMaxWaitTime(parseInt(e.target.value) || 0)}
+                    style={{
+                      width: '60px',
+                      padding: '4px 8px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '4px',
+                      color: 'white',
+                      fontSize: '13px',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)' }}>seconds</span>
+                </div>
               </div>
+              <p style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', margin: 0 }}>
+                Time before timeout (per page)
+              </p>
             </div>
             
             {/* Delay Before Extract */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <label style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)' }}>
-                Delay Before Extract
-              </label>
+            <div>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                justifyContent: 'space-between',
+                marginBottom: '4px'
               }}>
-                <input
-                  type="number"
-                  value={delayBeforeExtract}
-                  onChange={(e) => setDelayBeforeExtract(parseInt(e.target.value) || 0)}
-                  style={{
-                    width: '45px',
-                    padding: '2px 4px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '2px',
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: '10px',
-                    textAlign: 'center',
-                    outline: 'none'
-                  }}
-                />
-                <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.4)' }}>seconds</span>
+                <label style={{ fontSize: '13px' }}>Delay Before Extract</label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <input
+                    type="number"
+                    value={delayBeforeExtract}
+                    onChange={(e) => setDelayBeforeExtract(parseInt(e.target.value) || 0)}
+                    style={{
+                      width: '60px',
+                      padding: '4px 8px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '4px',
+                      color: 'white',
+                      fontSize: '13px',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)' }}>seconds</span>
+                </div>
               </div>
+              <p style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', margin: 0 }}>
+                Wait after page load
+              </p>
             </div>
           </div>
         </div>
         
         {/* Permission Notice */}
         <div style={{
-          padding: '6px 8px',
-          backgroundColor: 'rgba(251, 191, 36, 0.03)',
-          borderRadius: '3px',
-          border: '1px solid rgba(251, 191, 36, 0.1)',
-          marginBottom: '10px',
-          fontSize: '10px',
-          color: 'rgba(251, 191, 36, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '5px'
+          padding: '12px',
+          backgroundColor: 'rgba(255, 193, 7, 0.1)',
+          borderRadius: '6px',
+          border: '1px solid rgba(255, 193, 7, 0.3)',
+          marginBottom: '16px',
+          fontSize: '13px',
+          color: '#fbbf24'
         }}>
-          <span style={{ fontSize: '11px' }}>⚠️</span>
-          PandaExtract will ask for additional permissions to open new tabs for extraction
+          ExtractorGPT will ask for additional permissions to open new tabs for extraction
         </div>
         
         {/* Extract Button */}
@@ -722,18 +737,18 @@ export function ExtractEmailsTab({ isPro }) {
           disabled={isExtracting || urls.length === 0}
           style={{
             width: '100%',
-            padding: '8px',
+            padding: '12px',
             backgroundColor: urls.length > 0 ? '#7c3aed' : '#4a4a4a',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '8px',
             color: 'white',
-            fontSize: '12px',
+            fontSize: '15px',
             fontWeight: '500',
             cursor: urls.length > 0 && !isExtracting ? 'pointer' : 'not-allowed',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '5px'
+            gap: '8px'
           }}
         >
           {isExtracting ? (
@@ -743,13 +758,13 @@ export function ExtractEmailsTab({ isPro }) {
             </>
           ) : (
             <>
-              ☐ Extract Emails
+              ✉️ Extract Emails
               {!isPro && <span style={{
-                fontSize: '9px',
-                padding: '0px 4px',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '2px',
-                marginLeft: '2px'
+                fontSize: '11px',
+                padding: '2px 6px',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: '4px',
+                marginLeft: '4px'
               }}>PRO</span>}
             </>
           )}
@@ -759,24 +774,23 @@ export function ExtractEmailsTab({ isPro }) {
       {/* Progress */}
       {isExtracting && totalUrls > 0 && (
         <div style={{
-          marginTop: '10px',
-          padding: '8px',
-          backgroundColor: 'rgba(124, 58, 237, 0.03)',
-          borderRadius: '3px',
-          border: '1px solid rgba(124, 58, 237, 0.15)'
+          marginTop: '16px',
+          padding: '12px',
+          backgroundColor: 'rgba(124, 58, 237, 0.1)',
+          borderRadius: '6px',
+          border: '1px solid rgba(124, 58, 237, 0.3)'
         }}>
           <div style={{
-            fontSize: '11px',
-            marginBottom: '5px',
-            color: 'rgba(255, 255, 255, 0.7)'
+            fontSize: '14px',
+            marginBottom: '8px'
           }}>
             Processing: {processedUrls} / {totalUrls} URLs
           </div>
           <div style={{
             width: '100%',
-            height: '2px',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            borderRadius: '1px',
+            height: '4px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '2px',
             overflow: 'hidden'
           }}>
             <div style={{
@@ -792,13 +806,13 @@ export function ExtractEmailsTab({ isPro }) {
       {/* Error Message */}
       {error && (
         <div style={{
-          marginTop: '10px',
-          padding: '8px',
-          backgroundColor: 'rgba(239, 68, 68, 0.03)',
-          borderRadius: '3px',
-          border: '1px solid rgba(239, 68, 68, 0.15)',
+          marginTop: '16px',
+          padding: '12px',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          borderRadius: '6px',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
           color: '#f87171',
-          fontSize: '11px'
+          fontSize: '14px'
         }}>
           {error}
         </div>
@@ -807,36 +821,37 @@ export function ExtractEmailsTab({ isPro }) {
       {/* Results */}
       {extractedEmails.length > 0 && (
         <div style={{
-          marginTop: '16px',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          paddingTop: '12px'
+          marginTop: '24px',
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          borderRadius: '12px',
+          padding: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.1)'
         }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '10px'
+            marginBottom: '16px'
           }}>
             <h3 style={{
-              fontSize: '12px',
-              fontWeight: '500',
-              color: 'rgba(255, 255, 255, 0.8)'
+              fontSize: '16px',
+              fontWeight: '500'
             }}>
               Found {extractedEmails.length} Email{extractedEmails.length !== 1 ? 's' : ''}
             </h3>
             <div style={{
               display: 'flex',
-              gap: '5px'
+              gap: '8px'
             }}>
               <button
                 onClick={copyToClipboard}
                 style={{
-                  padding: '4px 8px',
-                  backgroundColor: 'transparent',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '2px',
-                  fontSize: '10px',
+                  padding: '6px 12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px',
+                  fontSize: '13px',
                   cursor: 'pointer'
                 }}
               >
@@ -845,12 +860,12 @@ export function ExtractEmailsTab({ isPro }) {
               <button
                 onClick={exportAsCSV}
                 style={{
-                  padding: '4px 8px',
-                  backgroundColor: 'transparent',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '2px',
-                  fontSize: '10px',
+                  padding: '6px 12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px',
+                  fontSize: '13px',
                   cursor: 'pointer'
                 }}
               >
@@ -860,22 +875,21 @@ export function ExtractEmailsTab({ isPro }) {
           </div>
           
           <div style={{
-            maxHeight: '200px',
+            maxHeight: '300px',
             overflowY: 'auto',
-            backgroundColor: 'rgba(0, 0, 0, 0.08)',
-            borderRadius: '3px',
-            border: '1px solid rgba(255, 255, 255, 0.05)'
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: '6px',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
           }}>
             {extractedEmails.map((email, index) => (
               <div
                 key={index}
                 style={{
-                  padding: '5px 8px',
-                  borderBottom: index < extractedEmails.length - 1 ? '1px solid rgba(255, 255, 255, 0.03)' : 'none',
-                  fontSize: '11px',
+                  padding: '8px 12px',
+                  borderBottom: index < extractedEmails.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+                  fontSize: '14px',
                   fontFamily: 'monospace',
-                  wordBreak: 'break-all',
-                  color: 'rgba(255, 255, 255, 0.7)'
+                  wordBreak: 'break-all'
                 }}
               >
                 {email}

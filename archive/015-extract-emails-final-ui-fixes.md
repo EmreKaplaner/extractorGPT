@@ -65,3 +65,5 @@ The Extract Emails tab now exactly matches WebPeeler's design:
 - [ ] Checkbox icon (☐) on Extract button
 - [ ] Compact spacing throughout
 - [ ] Font sizes match WebPeeler exactly 
+ 
+ 

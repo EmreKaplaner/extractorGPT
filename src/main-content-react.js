@@ -36,10 +36,11 @@ console.log('[EXTRACTOR-GPT] Content script starting to load...');
 console.log('[EXTRACTOR-GPT] Current URL:', window.location.href);
 console.log('[EXTRACTOR-GPT] Document ready state:', document.readyState);
 
-// Guard against multiple executions
+// Guard against multiple executions with better state tracking
 if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
-  console.log('[EXTRACTOR-GPT] Script already loaded, skipping...');
-  // Still need to set up message listener for subsequent loads
+  console.log('[EXTRACTOR-GPT] Script already loaded, setting up message listener...');
+  
+  // Set up message listener for subsequent loads
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('[CONTENT] Received message (from guard):', message);
     
@@ -49,12 +50,26 @@ if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
     }
     
     if (message.action === 'open') {
-      // Just show the UI if already initialized
-      if (window.__extractorGPT && window.__extractorGPT.isInitialized) {
+      // Check if already initializing or initialized
+      if (window.__extractorGPT.isInitializing) {
+        console.log('[EXTRACTOR-GPT] Already initializing, waiting...');
+        sendResponse({ status: 'initializing' });
+        return false;
+      }
+      
+      if (window.__extractorGPT.isInitialized) {
+        console.log('[EXTRACTOR-GPT] Already initialized, showing UI...');
         window.dispatchEvent(new CustomEvent('extractorGPT:show'));
         sendResponse({ status: 'shown' });
       } else {
-        sendResponse({ status: 'not_initialized' });
+        console.log('[EXTRACTOR-GPT] Not initialized, starting initialization...');
+        // Call initialize function
+        if (window.__extractorGPT.initializeFunction) {
+          window.__extractorGPT.initializeFunction();
+          sendResponse({ status: 'initializing' });
+        } else {
+          sendResponse({ status: 'not_ready' });
+        }
       }
       return false;
     }
@@ -62,11 +77,13 @@ if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
     return true;
   });
 } else {
-  // Mark script as loaded
+  // Mark script as loaded and initializing
   if (!window.__extractorGPT) {
     window.__extractorGPT = {};
   }
   window.__extractorGPT.scriptLoaded = true;
+  window.__extractorGPT.isInitializing = false;
+  window.__extractorGPT.isInitialized = false;
 
   // Main App Component with State Providers
   function ExtractorApp(props) {
@@ -303,10 +320,20 @@ if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
           return;
         }
         
+        if (window.__extractorGPT.isInitializing) {
+          console.log('[EXTRACTOR-GPT] Already initializing');
+          return;
+        }
+        
+        // Set initializing state
+        window.__extractorGPT.isInitializing = true;
+        
         // Check if shadow DOM already exists
         const existingShadow = document.getElementById('shadow-container-panda-extract');
         if (existingShadow) {
           console.log('[EXTRACTOR-GPT] Shadow DOM already exists, skipping initialization');
+          window.__extractorGPT.isInitialized = true;
+          window.__extractorGPT.isInitializing = false;
           return;
         }
         
@@ -423,13 +450,21 @@ if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
         window.__extractorGPT.automationHandler = automationHandler;
         
         window.__extractorGPT.isInitialized = true;
+        window.__extractorGPT.isInitializing = false;
         console.log('[EXTRACTOR-GPT] Initialization complete');
+        
+        // Show the UI after successful initialization
+        window.dispatchEvent(new CustomEvent('extractorGPT:show'));
       } catch (error) {
         console.error('[EXTRACTOR-GPT] Error in initialize():', error);
         console.error('[EXTRACTOR-GPT] Stack trace:', error.stack);
+        window.__extractorGPT.isInitializing = false;
         throw error;
       }
     }
+    
+    // Make initialize function available globally
+    window.__extractorGPT.initializeFunction = initialize;
     
     function activate() {
       console.log('🚀 ExtractorGPT: Activating...');
@@ -440,115 +475,23 @@ if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
         return;
       }
       
-      try {
-        // Inject extraction CSS into main page for highlighters
-        const existingStyle = document.querySelector('style[data-extractor-gpt]');
-        if (!existingStyle) {
-          const extractionStyle = document.createElement('style');
-          extractionStyle.setAttribute('data-extractor-gpt', 'true');
-          extractionStyle.textContent = `
-            /* Highlighter overlays */
-            .panda-extract-cursor-move-overlay {
-              position: absolute;
-              pointer-events: none;
-              border: 2px solid #4CAF50;
-              background: rgba(76, 175, 80, 0.1);
-              z-index: 900000002;
-              transition: all 0.2s ease;
-            }
-            
-            .panda-highlight-collection-element {
-              outline: 2px solid #2196F3 !important;
-              background: rgba(33, 150, 243, 0.1) !important;
-              cursor: pointer !important;
-            }
-            
-            .panda-extract-highlighted-item {
-              outline: 2px solid #FF9800 !important;
-              background: rgba(255, 152, 0, 0.1) !important;
-              cursor: pointer !important;
-            }
-            
-            /* Z-index layers */
-            .panda-z-2 { z-index: 900000002; }
-          `;
-          document.head.appendChild(extractionStyle);
-        }
-        
-        // Initialize shadow DOM first
-        const shadowContainer = ShadowDomUtils.build({
-          id: 'shadow-container-panda-extract',
-          styles: TailwindCSS
-        });
-        
-        if (!shadowContainer) {
-          console.error('❌ ExtractorGPT: Failed to create shadow container');
-          return;
-        }
-        
-        // Attach to body BEFORE creating React app
-        document.body.appendChild(shadowContainer);
-        
-        // Create React root in shadow DOM
-        const shadowRoot = shadowContainer.shadowRoot;
-        const appContainer = document.createElement('div');
-        appContainer.id = 'extractor-app-root';
-        shadowRoot.appendChild(appContainer);
-        
-        // Initialize extraction engine (static class)
-        window.__extractorGPT.extractionEngine = ExtractionEngine;
-        
-        // Initialize results table
-        window.__extractorGPT.resultsTable = new ResultsTable();
-        
-        // Initialize selection engine but don't attach yet
-        window.__extractorGPT.selectionEngine = new SelectionEngine({
-          shadowRoot: shadowRoot,
-          onElementClick: handleElementSelection,
-          onListSelected: handleListSelection,
-          onPause: () => {
-            console.log('[EXTRACTOR-GPT] Selection paused');
-          },
-          onResume: () => {
-            console.log('[EXTRACTOR-GPT] Selection resumed');
-          },
-          onModeChanged: (mode) => {
-            console.log('[EXTRACTOR-GPT] Selection mode changed:', mode);
-            window.dispatchEvent(new CustomEvent('extractorGPT:modeChanged', { detail: mode }));
-          },
-          onElementHovered: (element) => {
-            // Optional: handle element hover
-          },
-          config: {
-            ignoreViewsWithClass: ["panda-extract"]
+      if (window.__extractorGPT.isInitializing) {
+        console.log('⚠️ ExtractorGPT: Already initializing, waiting...');
+        // Set up a listener to show UI once initialization is complete
+        const checkInitialized = () => {
+          if (window.__extractorGPT.isInitialized) {
+            window.dispatchEvent(new CustomEvent('extractorGPT:show'));
+          } else {
+            setTimeout(checkInitialized, 100);
           }
-        });
-        
-        // Initialize automation handler
-        window.__extractorGPT.automationHandler = automationHandler;
-        
-        // Make selection engine available globally
-        attachSelectionEngine(window.__extractorGPT.selectionEngine);
-        
-        // Create React app
-        const root = ReactDOM.createRoot(appContainer);
-        root.render(
-          React.createElement(ExtractorApp, {
-            selectionEngine: window.__extractorGPT.selectionEngine
-          })
-        );
-        
-        window.__extractorGPT.isInitialized = true;
-        window.__extractorGPT.isActive = true;
-        console.log('✅ ExtractorGPT: Activation complete!');
-        
-        // Show the UI
-        window.dispatchEvent(new CustomEvent('extractorGPT:show'));
-        
-      } catch (error) {
-        console.error('❌ ExtractorGPT: Activation failed:', error);
-        console.error('Stack trace:', error.stack);
+        };
+        setTimeout(checkInitialized, 100);
+        return;
       }
+      
+      // Use the centralized initialize function
+      initialize();
+      
     }
     
     function deactivate() {

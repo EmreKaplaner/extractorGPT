@@ -65,3 +65,5 @@
 
 ## Note on Licensing
 The PRO badge and licensing checks were kept as-is, only the visual styling was updated to match WebPeeler's design. 
+ 
+ 

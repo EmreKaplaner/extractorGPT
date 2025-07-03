@@ -76,3 +76,5 @@ The Extract Page Details feature now works exactly like WebPeeler:
 - All functionality working as expected
 
 The implementation now matches the WebPeeler workflow shown in the screenshots! 
+ 
+ 

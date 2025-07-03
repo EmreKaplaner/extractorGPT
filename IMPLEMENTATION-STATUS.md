@@ -151,3 +151,5 @@ The selector UI uses inline styles instead of Tailwind classes to ensure proper 
 - Google Sheets integration
 - License management system
 - Device activation/validation 
+ 
+ 

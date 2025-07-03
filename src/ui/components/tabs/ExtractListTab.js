@@ -196,19 +196,20 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
     };
     
     return (
-      <div style={{ fontSize: '11px' }}>
+      <div>
         {/* Results Table */}
         <div style={{
-          marginBottom: '16px',
-          borderRadius: '4px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          marginBottom: '24px',
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          borderRadius: '8px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           overflow: 'hidden'
         }}>
           {/* Table Header with Export Actions */}
           <div style={{
-            padding: '8px 10px',
-            backgroundColor: 'rgba(0, 0, 0, 0.05)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '12px 16px',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
@@ -216,20 +217,20 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '12px'
             }}>
               <span style={{
-                fontSize: '12px',
+                fontSize: '14px',
                 fontWeight: '500',
-                color: 'rgba(255, 255, 255, 0.9)'
+                color: 'white'
               }}>
                 📊 Extracted Data
               </span>
               <span style={{
-                padding: '2px 6px',
-                backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                borderRadius: '3px',
-                fontSize: '10px',
+                padding: '2px 8px',
+                backgroundColor: 'rgba(124, 58, 237, 0.2)',
+                borderRadius: '4px',
+                fontSize: '12px',
                 color: '#a78bfa'
               }}>
                 {resultsTableData.rows.length} rows
@@ -239,27 +240,27 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
             {/* Export Actions */}
             <div style={{
               display: 'flex',
-              gap: '4px'
+              gap: '8px'
             }}>
               <button
                 onClick={() => handleExport('csv')}
                 style={{
-                  padding: '4px 8px',
+                  padding: '6px 12px',
                   backgroundColor: 'transparent',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '3px',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '10px',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '12px',
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                 }}
               >
                 📥 CSV
@@ -267,22 +268,22 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
               <button
                 onClick={() => handleExport('json')}
                 style={{
-                  padding: '4px 8px',
+                  padding: '6px 12px',
                   backgroundColor: 'transparent',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '3px',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '10px',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '12px',
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                 }}
               >
                 { } JSON
@@ -290,22 +291,22 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
               <button
                 onClick={() => handleExport('clipboard')}
                 style={{
-                  padding: '4px 8px',
+                  padding: '6px 12px',
                   backgroundColor: 'transparent',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '3px',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '10px',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '12px',
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                 }}
               >
                 📋 Copy
@@ -314,23 +315,23 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
                 onClick={handleLabelData}
                 disabled={isLabelingData}
                 style={{
-                  padding: '4px 8px',
-                  backgroundColor: isLabelingData ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.08)',
-                  border: '1px solid rgba(124, 58, 237, 0.2)',
-                  borderRadius: '3px',
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  fontSize: '10px',
+                  padding: '6px 12px',
+                  backgroundColor: isLabelingData ? 'rgba(124, 58, 237, 0.5)' : 'rgba(124, 58, 237, 0.2)',
+                  border: '1px solid rgba(124, 58, 237, 0.4)',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '12px',
                   cursor: isLabelingData ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '3px'
+                  gap: '4px'
                 }}
-                onMouseEnter={(e) => !isLabelingData && (e.currentTarget.style.backgroundColor = 'rgba(124, 58, 237, 0.15)')}
-                onMouseLeave={(e) => !isLabelingData && (e.currentTarget.style.backgroundColor = 'rgba(124, 58, 237, 0.08)')}
+                onMouseEnter={(e) => !isLabelingData && (e.currentTarget.style.backgroundColor = 'rgba(124, 58, 237, 0.3)')}
+                onMouseLeave={(e) => !isLabelingData && (e.currentTarget.style.backgroundColor = 'rgba(124, 58, 237, 0.2)')}
                 title="Automatically label data based on the content of the columns"
               >
-                <span style={{ fontSize: '11px' }}>✨</span>
+                <span style={{ fontSize: '14px' }}>✨</span>
                 {isLabelingData ? 'Labeling...' : 'Label Data'}
               </button>
             </div>
@@ -338,9 +339,9 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
           
           {/* Results Table */}
           <div style={{
-            maxHeight: '250px',
+            maxHeight: '300px',
             overflowY: 'auto',
-            backgroundColor: 'rgba(0, 0, 0, 0.02)'
+            backgroundColor: 'rgba(0, 0, 0, 0.2)'
           }}>
             <ResultsTable 
               data={resultsTableData}
@@ -352,29 +353,29 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
         {/* Automation Prompt */}
         {showAutomationPrompt && (
           <div style={{
-            marginBottom: '16px',
-            padding: '12px',
-            backgroundColor: 'rgba(124, 58, 237, 0.03)',
-            borderRadius: '4px',
-            border: '1px solid rgba(124, 58, 237, 0.15)'
+            marginBottom: '24px',
+            padding: '16px',
+            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+            borderRadius: '8px',
+            border: '1px solid rgba(124, 58, 237, 0.3)'
           }}>
             <h3 style={{
-              margin: '0 0 8px 0',
-              fontSize: '13px',
-              fontWeight: '500',
-              color: 'rgba(255, 255, 255, 0.9)',
+              margin: '0 0 12px 0',
+              fontSize: '16px',
+              fontWeight: '600',
+              color: 'white',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '8px'
             }}>
               🤖 Run Automation?
             </h3>
             
             <p style={{
-              margin: '0 0 12px 0',
-              fontSize: '11px',
-              color: 'rgba(255, 255, 255, 0.6)',
-              lineHeight: '1.4'
+              margin: '0 0 16px 0',
+              fontSize: '14px',
+              color: '#9ca3af',
+              lineHeight: '1.5'
             }}>
               Continue extracting data by scrolling through the page or following pagination.
             </p>
@@ -382,21 +383,21 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              marginBottom: '12px'
+              gap: '12px',
+              marginBottom: '16px'
             }}>
               <span style={{
-                fontSize: '11px',
+                fontSize: '14px',
                 fontWeight: '500',
-                color: 'rgba(255, 255, 255, 0.8)'
+                color: 'white'
               }}>
                 ✅ READY
               </span>
               <span style={{
-                padding: '2px 6px',
-                backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                borderRadius: '3px',
-                fontSize: '10px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(124, 58, 237, 0.2)',
+                borderRadius: '4px',
+                fontSize: '12px',
                 color: '#a78bfa'
               }}>
                 🔢 {resultsTableData.rows.length} items
@@ -409,20 +410,20 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
               disabled={isExtracting}
               style={{
                 width: '100%',
-                padding: '8px',
+                padding: '12px',
                 backgroundColor: isExtracting ? 'rgba(124, 58, 237, 0.5)' : '#7c3aed',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 color: 'white',
-                fontSize: '12px',
-                fontWeight: '500',
+                fontSize: '14px',
+                fontWeight: '600',
                 cursor: isExtracting ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '6px',
+                gap: '8px',
                 transition: 'all 0.2s',
-                marginBottom: '12px'
+                marginBottom: '16px'
               }}
               onMouseEnter={(e) => !isExtracting && (e.currentTarget.style.backgroundColor = '#6d28d9')}
               onMouseLeave={(e) => !isExtracting && (e.currentTarget.style.backgroundColor = '#7c3aed')}
@@ -442,53 +443,53 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
             
             {/* Add Pagination */}
             <div style={{
-              marginBottom: '0'
+              marginBottom: '16px'
             }}>
               {!paginationElement && !isPaginationSelecting ? (
                 <button
                   onClick={handleAddPagination}
                   style={{
-                    padding: '6px 12px',
+                    padding: '8px 16px',
                     backgroundColor: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '3px',
-                    color: 'rgba(255, 255, 255, 0.7)',
-                    fontSize: '11px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '6px',
+                    color: 'white',
+                    fontSize: '13px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: '8px',
                     transition: 'all 0.2s'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                   }}
                 >
                   ➕ Add Pagination
                 </button>
               ) : isPaginationSelecting ? (
                 <div style={{
-                  padding: '8px',
-                  backgroundColor: 'rgba(124, 58, 237, 0.08)',
-                  borderRadius: '3px',
-                  border: '1px solid rgba(124, 58, 237, 0.2)',
+                  padding: '12px',
+                  backgroundColor: 'rgba(124, 58, 237, 0.2)',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(124, 58, 237, 0.4)',
                   animation: 'pulse 2s infinite'
                 }}>
                   <div style={{
-                    fontSize: '11px',
-                    color: 'rgba(255, 255, 255, 0.9)',
+                    fontSize: '13px',
+                    color: 'white',
                     fontWeight: '500',
-                    marginBottom: '2px'
+                    marginBottom: '4px'
                   }}>
                     🎯 Click on the pagination button
                   </div>
                   <div style={{
-                    fontSize: '10px',
+                    fontSize: '12px',
                     color: '#a78bfa'
                   }}>
                     Select the "Next" button or page number to follow
@@ -496,64 +497,126 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
                 </div>
               ) : (
                 <div style={{
-                  padding: '8px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                  borderRadius: '3px',
-                  border: '1px solid rgba(16, 185, 129, 0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
+                  padding: '12px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
                 }}>
-                  <div>
-                    <div style={{
-                      fontSize: '11px',
-                      color: 'rgba(255, 255, 255, 0.9)',
-                      fontWeight: '500',
-                      marginBottom: '2px'
-                    }}>
-                      ✅ Pagination Selected
-                    </div>
-                    <div style={{
-                      fontSize: '10px',
-                      color: 'rgba(255, 255, 255, 0.6)'
-                    }}>
-                      {paginationElement.tagName.toLowerCase()} - {paginationElement.textContent || 'Button'}
-                    </div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '8px'
+                  }}>
+                    <span style={{ fontSize: '13px', color: '#9ca3af' }}>
+                      Pagination element:
+                    </span>
+                    <button
+                      onClick={handleRemovePagination}
+                      style={{
+                        marginLeft: 'auto',
+                        padding: '2px 6px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: '#ef4444',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Remove
+                    </button>
                   </div>
-                  <button
-                    onClick={handleRemovePagination}
-                    style={{
-                      padding: '3px 6px',
-                      backgroundColor: 'transparent',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '2px',
-                      color: 'rgba(255, 255, 255, 0.6)',
-                      fontSize: '10px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Remove
-                  </button>
+                  <div style={{
+                    padding: '8px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    color: 'white'
+                  }}>
+                    {paginationElement.tagName.toLowerCase()}
+                    {paginationElement.className && ` .${paginationElement.className.split(' ')[0]}`}
+                    {paginationElement.textContent && ` "${paginationElement.textContent.substring(0, 20)}..."`}
+                  </div>
                 </div>
               )}
             </div>
             
-            {/* Cancel Button */}
+            {/* Automation Options */}
+            <div style={{
+              display: 'flex',
+              gap: '16px',
+              marginBottom: '16px'
+            }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                color: 'white',
+                cursor: 'pointer'
+              }}>
+                <span style={{
+                  width: '16px',
+                  height: '16px',
+                  backgroundColor: '#10b981',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px'
+                }}>
+                  ✓
+                </span>
+                auto-scroll
+              </label>
+              
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                color: 'white',
+                cursor: 'pointer'
+              }}>
+                <span style={{
+                  width: '16px',
+                  height: '16px',
+                  backgroundColor: '#10b981',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px'
+                }}>
+                  ✓
+                </span>
+                dynamic
+              </label>
+            </div>
+            
             <button
               onClick={() => setShowAutomationPrompt(false)}
               style={{
-                padding: '4px',
+                padding: '8px 16px',
                 backgroundColor: 'transparent',
-                border: 'none',
-                color: 'rgba(255, 255, 255, 0.4)',
-                fontSize: '10px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '13px',
                 cursor: 'pointer',
-                textAlign: 'center',
-                width: '100%',
-                marginTop: '8px'
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
               }}
             >
-              Cancel
+              Skip Automation
             </button>
           </div>
         )}
@@ -561,306 +624,160 @@ export function ExtractListTab({ isPro, showResults, extractedData, onPagination
     );
   }
   
-  // Default view when no selection is active
+  // Default view when no results - show instructions only
   return (
-    <div style={{ fontSize: '11px' }}>
-      {/* Main message */}
-      {!highlightEnabled ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '20px 0'
-        }}>
-          <div style={{
-            fontSize: '36px',
-            marginBottom: '12px'
-          }}>
-            👆
-          </div>
-          <h3 style={{
-            fontSize: '14px',
-            fontWeight: '500',
-            marginBottom: '6px',
-            color: 'rgba(255, 255, 255, 0.9)'
-          }}>
-            Select Elements to Extract
-          </h3>
-          <p style={{
-            fontSize: '11px',
-            color: 'rgba(255, 255, 255, 0.6)',
-            margin: 0
-          }}>
-            Click on "Enable list selection" button above to start
-          </p>
-        </div>
-      ) : (
-        <div style={{
-          padding: '16px',
-          backgroundColor: 'rgba(124, 58, 237, 0.03)',
-          borderRadius: '8px',
-          border: '1px solid rgba(124, 58, 237, 0.15)'
-        }}>
-          {/* Extract List Header */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: '16px'
-          }}>
-            <span style={{ 
-              fontSize: '16px',
-              padding: '6px',
-              backgroundColor: 'rgba(124, 58, 237, 0.1)',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>🗂️</span>
-            <div>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                margin: 0,
-                color: 'rgba(255, 255, 255, 0.95)'
-              }}>
-                Extract List
-              </h3>
-              <p style={{
-                fontSize: '12px',
-                color: 'rgba(255, 255, 255, 0.6)',
-                margin: '2px 0 0 0'
-              }}>
-                Extract any list or table with one click!
-              </p>
-            </div>
-          </div>
-          
-          {/* Step 1 */}
-          <div style={{
-            marginBottom: '16px',
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'flex-start'
-          }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              backgroundColor: 'rgba(124, 58, 237, 0.15)',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '18px',
-              flexShrink: 0
-            }}>
-              👆
-            </div>
-            <div>
-              <h4 style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                margin: '0 0 4px 0',
-                color: 'rgba(255, 255, 255, 0.9)'
-              }}>
-                Step 1: Hover
-              </h4>
-              <p style={{
-                fontSize: '12px',
-                color: 'rgba(255, 255, 255, 0.6)',
-                margin: 0,
-                lineHeight: '1.4'
-              }}>
-                Move your cursor over any list or table to highlight extractable elements
-              </p>
-            </div>
-          </div>
-          
-          {/* Step 2 */}
-          <div style={{
-            marginBottom: '20px',
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'flex-start'
-          }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              backgroundColor: 'rgba(124, 58, 237, 0.15)',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '18px',
-              flexShrink: 0
-            }}>
-              🎯
-            </div>
-            <div>
-              <h4 style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                margin: '0 0 4px 0',
-                color: 'rgba(255, 255, 255, 0.9)'
-              }}>
-                Step 2: Click
-              </h4>
-              <p style={{
-                fontSize: '12px',
-                color: 'rgba(255, 255, 255, 0.6)',
-                margin: 0,
-                lineHeight: '1.4'
-              }}>
-                Click on the highlighted area to start extracting data
-              </p>
-            </div>
-          </div>
-          
-          {/* Watch Tutorial Link */}
-          <div style={{
-            marginBottom: '20px',
-            padding: '12px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-          }}
-          onClick={() => window.open('https://youtu.be/your-video-id', '_blank')}
-          >
-            <div style={{
-              width: '40px',
-              height: '28px',
-              backgroundColor: 'rgba(124, 58, 237, 0.2)',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '16px'
-            }}>
-              📹
-            </div>
-            <div>
-              <div style={{ 
-                fontSize: '12px', 
-                fontWeight: '500',
-                color: 'rgba(255, 255, 255, 0.9)'
-              }}>
-                Watch: Extract Lists 🔗
-              </div>
-              <div style={{ 
-                fontSize: '11px', 
-                color: 'rgba(255, 255, 255, 0.6)' 
-              }}>
-                Learn how to extract lists using PandaExtract.
-              </div>
-            </div>
-          </div>
-          
-          {/* START LIST EXTRACTION Button */}
-          <button
-            onClick={() => {
-              // This triggers the actual extraction
-              if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
-                window.__extractorGPT.selectionEngine.confirmSelection();
-              }
-            }}
-            style={{
-              marginTop: '16px',
-              width: '100%',
-              padding: '12px 20px',
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-              border: 'none',
-              borderRadius: '8px',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 16px rgba(124, 58, 237, 0.4)',
-              transition: 'all 0.2s',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(124, 58, 237, 0.5)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 16px rgba(124, 58, 237, 0.4)';
-            }}
-          >
-            <span style={{ fontSize: '16px' }}>🚀</span>
-            <span>START LIST EXTRACTION</span>
-          </button>
-        </div>
-      )}
-      
-      {/* Pro Features */}
-      {!isPro && (
-        <div style={{
-          marginTop: '16px',
-          padding: '12px',
-          backgroundColor: 'rgba(251, 191, 36, 0.03)',
-          borderRadius: '4px',
-          border: '1px solid rgba(251, 191, 36, 0.15)'
-        }}>
-          <h4 style={{
-            fontSize: '12px',
-            fontWeight: '500',
-            marginBottom: '8px',
-            color: 'rgba(255, 255, 255, 0.9)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            🚀 Pro Features
-          </h4>
-          <ul style={{
-            margin: 0,
-            paddingLeft: '20px',
-            fontSize: '10px',
-            color: 'rgba(255, 255, 255, 0.6)',
-            lineHeight: '1.5'
-          }}>
-            <li>Extract unlimited items</li>
-            <li>Run automation with pagination</li>
-            <li>Export to CSV, JSON, Excel</li>
-            <li>Smart data labeling with AI</li>
-          </ul>
-        </div>
-      )}
-      
-      {/* Help Section */}
-      <div style={{
-        marginTop: '16px',
-        padding: '8px',
-        borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+    <div>
+      <p style={{ 
+        margin: '0 0 24px 0', 
+        fontSize: '14px', 
+        color: '#9ca3af',
+        lineHeight: '1.5'
       }}>
-        <p style={{
-          fontSize: '10px',
-          color: 'rgba(255, 255, 255, 0.4)',
-          margin: 0,
-          textAlign: 'center'
+        Extract any list or table with one click!
+      </p>
+      
+      {/* Selection Status */}
+      {highlightEnabled && (
+        <div style={{
+          marginBottom: '24px',
+          padding: '12px',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          borderRadius: '8px',
+          fontSize: '14px',
+          color: '#10b981',
+          textAlign: 'center',
+          fontWeight: '500'
         }}>
-          Need help? Press <kbd style={{
-            padding: '1px 4px',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '2px',
-            fontSize: '9px'
-          }}>?</kbd> for keyboard shortcuts
-        </p>
+          ✓ Selection Mode Active - Hover and click on any list
+        </div>
+      )}
+      
+      {/* Step 1 */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            backgroundColor: 'rgba(124, 58, 237, 0.2)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <span style={{ fontSize: '20px' }}>👆</span>
+          </div>
+          <div>
+            <h3 style={{ 
+              margin: '0 0 4px 0', 
+              fontSize: '16px', 
+              fontWeight: '600',
+              color: 'white'
+            }}>
+              Step 1: Enable Selection
+            </h3>
+            <p style={{ 
+              margin: 0, 
+              fontSize: '14px', 
+              color: '#9ca3af',
+              lineHeight: '1.5'
+            }}>
+              Click "Enable List Selection" in the toolbar above
+            </p>
+          </div>
+        </div>
       </div>
+      
+      {/* Step 2 */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            backgroundColor: 'rgba(124, 58, 237, 0.2)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <span style={{ fontSize: '20px' }}>🎯</span>
+          </div>
+          <div>
+            <h3 style={{ 
+              margin: '0 0 4px 0', 
+              fontSize: '16px', 
+              fontWeight: '600',
+              color: 'white'
+            }}>
+              Step 2: Select List
+            </h3>
+            <p style={{ 
+              margin: 0, 
+              fontSize: '14px', 
+              color: '#9ca3af',
+              lineHeight: '1.5'
+            }}>
+              Hover over any list or table and click to extract data
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Watch Tutorial Link */}
+      <div style={{
+        marginBottom: '24px',
+        padding: '16px',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'}
+      >
+        <div style={{
+          width: '48px',
+          height: '32px',
+          backgroundColor: 'rgba(124, 58, 237, 0.3)',
+          borderRadius: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative'
+        }}>
+          <span style={{ fontSize: '16px' }}>📹</span>
+        </div>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: '500' }}>
+            Watch: Extract Lists 🔗
+          </div>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            Learn how to extract lists using ExtractorGPT.
+          </div>
+        </div>
+      </div>
+      
+      {/* Add pulse animation */}
+      <style>
+        {`
+          @keyframes pulse {
+            0% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.8;
+            }
+            100% {
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 }
