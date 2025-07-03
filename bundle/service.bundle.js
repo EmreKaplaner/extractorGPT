@@ -1267,7 +1267,12 @@
       });
       activeExtractions.set("page-details", processor);
       processor.initialize();
+      let responseSent = false;
       const statusInterval = setInterval(() => {
+        if (responseSent) {
+          clearInterval(statusInterval);
+          return;
+        }
         const status = processor.getStatus();
         chrome.tabs.sendMessage(sender.tab.id, {
           action: "status-update-extract",
@@ -1279,40 +1284,43 @@
         );
         if (allComplete) {
           clearInterval(statusInterval);
+          responseSent = true;
           const outcomes = processor.getOutcomes();
           console.log("[Background] Extraction outcomes:", outcomes);
           const results = [];
           for (const [url, outcome] of outcomes) {
             console.log("[Background] Processing outcome for URL:", url, "Outcome:", outcome);
+            const row = { url };
             if (outcome && Array.isArray(outcome)) {
-              const row = { url };
               outcome.forEach((item) => {
                 if (item?.name && item?.data) {
                   row[item.name] = item.data;
                 }
               });
-              if (Object.keys(row).length > 1) {
-                results.push(row);
-              }
             }
+            results.push(row);
           }
           console.log("[Background] Final extraction results:", results);
           activeExtractions.delete("page-details");
-          sendResponse({ success: true, results });
+          try {
+            sendResponse({ success: true, results });
+          } catch (error) {
+            console.error("[Background] Error sending response:", error);
+          }
         }
       }, 1e3);
       setTimeout(() => {
-        clearInterval(statusInterval);
-        if (activeExtractions.has("page-details")) {
+        if (!responseSent) {
+          clearInterval(statusInterval);
+          responseSent = true;
           activeExtractions.delete("page-details");
           sendResponse({ success: false, error: "Extraction timeout" });
         }
       }, (config?.maxWaitTime || 30) * 1e3 * urls.length);
     } catch (error) {
       console.error("[Background] Page details extraction error:", error);
-      sendResponse({ success: false, error: error.message });
-    } finally {
       activeExtractions.delete("page-details");
+      sendResponse({ success: false, error: error.message });
     }
   }
   function handleStopPageDetailsExtraction(request, sender, sendResponse) {

@@ -669,8 +669,16 @@ async function handlePageDetailsExtract(request, sender, sendResponse) {
     // Initialize and wait for completion
     processor.initialize();
     
+    // Track if we've already sent a response
+    let responseSent = false;
+    
     // Send status updates to the requesting tab
     const statusInterval = setInterval(() => {
+      if (responseSent) {
+        clearInterval(statusInterval);
+        return;
+      }
+      
       const status = processor.getStatus();
       
       // Send status update to the tab
@@ -687,37 +695,46 @@ async function handlePageDetailsExtract(request, sender, sendResponse) {
       
       if (allComplete) {
         clearInterval(statusInterval);
+        responseSent = true;
         
         // Get outcomes and format results
         const outcomes = processor.getOutcomes();
         console.log('[Background] Extraction outcomes:', outcomes);
-    const results = [];
+        const results = [];
         
-    for (const [url, outcome] of outcomes) {
+        for (const [url, outcome] of outcomes) {
           console.log('[Background] Processing outcome for URL:', url, 'Outcome:', outcome);
+          const row = { url };
+          
           if (outcome && Array.isArray(outcome)) {
-        const row = { url };
             outcome.forEach(item => {
               if (item?.name && item?.data) {
                 row[item.name] = item.data;
               }
-        });
-            if (Object.keys(row).length > 1) {
-        results.push(row);
-      }
-    }
+            });
+          }
+          
+          // Include all rows, even if they only have URL (to show failed extractions)
+          results.push(row);
         }
         
         console.log('[Background] Final extraction results:', results);
         activeExtractions.delete('page-details');
-    sendResponse({ success: true, results });
+        
+        // Ensure we send the response
+        try {
+          sendResponse({ success: true, results });
+        } catch (error) {
+          console.error('[Background] Error sending response:', error);
+        }
       }
     }, 1000);
     
     // Cleanup after timeout
     setTimeout(() => {
-      clearInterval(statusInterval);
-      if (activeExtractions.has('page-details')) {
+      if (!responseSent) {
+        clearInterval(statusInterval);
+        responseSent = true;
         activeExtractions.delete('page-details');
         sendResponse({ success: false, error: 'Extraction timeout' });
       }
@@ -725,9 +742,8 @@ async function handlePageDetailsExtract(request, sender, sendResponse) {
     
   } catch (error) {
     console.error('[Background] Page details extraction error:', error);
-    sendResponse({ success: false, error: error.message });
-  } finally {
     activeExtractions.delete('page-details');
+    sendResponse({ success: false, error: error.message });
   }
 }
 

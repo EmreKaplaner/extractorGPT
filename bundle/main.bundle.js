@@ -50957,15 +50957,22 @@ select{
           }
         }, (response) => {
           console.log("[ExtractDetailsTab] Extraction response:", response);
+          setIsExtracting(false);
+          setExtractionStatus("idle");
           if (response && response.success) {
             console.log("[ExtractDetailsTab] Setting extraction results:", response.results);
-            setExtractionResults(response.results || []);
-            setExtractionStatus("idle");
-            setIsExtracting(false);
+            const results = response.results || [];
+            setExtractionResults(results);
+            setTimeout(() => {
+              console.log("[ExtractDetailsTab] Current extraction results state:", results);
+            }, 100);
+            if (results.length === 0) {
+              setError("No data was extracted. Please check that the selected elements contain data on the target pages.");
+            }
           } else if (response && response.error) {
             setError(response.error);
-            setExtractionStatus("idle");
-            setIsExtracting(false);
+          } else {
+            setError("Extraction failed with unknown error");
           }
         });
       } catch (err) {
