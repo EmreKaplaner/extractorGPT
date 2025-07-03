@@ -50821,6 +50821,9 @@ select{
         chrome.runtime.onMessage.removeListener(handleMessage);
       };
     }, []);
+    (0, import_react9.useEffect)(() => {
+      console.log("[ExtractDetailsTab] showSelectElementsModal changed:", showSelectElementsModal);
+    }, [showSelectElementsModal]);
     const handleCSVUpload = (event2) => {
       const file = event2.target.files[0];
       if (!file)
@@ -50905,13 +50908,31 @@ select{
       }
     };
     const handleAddElements = async () => {
+      console.log("[ExtractDetailsTab] handleAddElements called");
+      console.log("[ExtractDetailsTab] URLs:", urls);
+      console.log("[ExtractDetailsTab] URLs length:", urls.length);
       if (urls.length === 0) {
+        console.log("[ExtractDetailsTab] No URLs, setting error");
         setError("Please add at least one URL first");
         return;
       }
-      await chrome.storage.local.set({ pageDetailsUrls: urls });
-      setShowSelectElementsModal(true);
-      setError("");
+      try {
+        console.log("[ExtractDetailsTab] Storing URLs in chrome storage");
+        if (chrome && chrome.storage && chrome.storage.local) {
+          await chrome.storage.local.set({ pageDetailsUrls: urls });
+        } else {
+          console.warn("[ExtractDetailsTab] Chrome storage not available, proceeding without storage");
+        }
+        console.log("[ExtractDetailsTab] Setting showSelectElementsModal to true");
+        setShowSelectElementsModal(true);
+        setError("");
+        console.log("[ExtractDetailsTab] Modal should now be visible");
+      } catch (error2) {
+        console.error("[ExtractDetailsTab] Error in handleAddElements:", error2);
+        console.log("[ExtractDetailsTab] Error with storage, but showing modal anyway");
+        setShowSelectElementsModal(true);
+        setError("");
+      }
     };
     const handleGoToPage = (selectedUrl) => {
       setShowSelectElementsModal(false);
@@ -51248,7 +51269,12 @@ select{
     } }, "Opening page for element selection...")) : /* @__PURE__ */ import_react9.default.createElement(
       "button",
       {
-        onClick: handleAddElements,
+        onClick: (e) => {
+          console.log("[ExtractDetailsTab] Button clicked", e);
+          console.log("[ExtractDetailsTab] urls.length:", urls.length);
+          console.log("[ExtractDetailsTab] Button disabled:", urls.length === 0);
+          handleAddElements();
+        },
         disabled: urls.length === 0,
         style: {
           marginTop: "8px",
@@ -51567,15 +51593,18 @@ select{
       padding: "6px",
       color: "rgba(255, 255, 255, 0.6)",
       borderRight: colIndex < Object.values(row).length - 1 ? "1px solid rgba(255, 255, 255, 0.03)" : "none"
-    } }, value || "-")))))))), showSelectElementsModal && /* @__PURE__ */ import_react9.default.createElement(
+    } }, value || "-")))))))), showSelectElementsModal && /* @__PURE__ */ import_react9.default.createElement(import_react9.default.Fragment, null, console.log("[ExtractDetailsTab] Rendering SelectElementsModal"), /* @__PURE__ */ import_react9.default.createElement(
       SelectElementsModal,
       {
         isOpen: showSelectElementsModal,
         urls,
         onGoToPage: handleGoToPage,
-        onClose: () => setShowSelectElementsModal(false)
+        onClose: () => {
+          console.log("[ExtractDetailsTab] Modal onClose called");
+          setShowSelectElementsModal(false);
+        }
       }
-    )));
+    ))));
   }
   var ExtractDetailsTab_default = ExtractDetailsTab;
 

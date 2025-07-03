@@ -57,6 +57,11 @@ export function ExtractDetailsTab({ isPro }) {
     };
   }, []);
   
+  // Debug modal state changes
+  useEffect(() => {
+    console.log('[ExtractDetailsTab] showSelectElementsModal changed:', showSelectElementsModal);
+  }, [showSelectElementsModal]);
+  
   // Handle CSV upload
   const handleCSVUpload = (event) => {
     const file = event.target.files[0];
@@ -154,16 +159,37 @@ export function ExtractDetailsTab({ isPro }) {
   
   // Add elements - show Select Elements modal
   const handleAddElements = async () => {
+    console.log('[ExtractDetailsTab] handleAddElements called');
+    console.log('[ExtractDetailsTab] URLs:', urls);
+    console.log('[ExtractDetailsTab] URLs length:', urls.length);
+    
     if (urls.length === 0) {
+      console.log('[ExtractDetailsTab] No URLs, setting error');
       setError('Please add at least one URL first');
       return;
     }
     
-    // Store the full URL list for later extraction
-    await chrome.storage.local.set({ pageDetailsUrls: urls });
-    
-    setShowSelectElementsModal(true);
-    setError('');
+    try {
+      // Store the full URL list for later extraction
+      console.log('[ExtractDetailsTab] Storing URLs in chrome storage');
+      if (chrome && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({ pageDetailsUrls: urls });
+      } else {
+        console.warn('[ExtractDetailsTab] Chrome storage not available, proceeding without storage');
+      }
+      
+      console.log('[ExtractDetailsTab] Setting showSelectElementsModal to true');
+      setShowSelectElementsModal(true);
+      setError('');
+      
+      console.log('[ExtractDetailsTab] Modal should now be visible');
+    } catch (error) {
+      console.error('[ExtractDetailsTab] Error in handleAddElements:', error);
+      // Don't let storage errors prevent the modal from showing
+      console.log('[ExtractDetailsTab] Error with storage, but showing modal anyway');
+      setShowSelectElementsModal(true);
+      setError('');
+    }
   };
   
   // Handle URL selection and page opening
@@ -601,7 +627,12 @@ export function ExtractDetailsTab({ isPro }) {
         </div>
           ) : (
             <button
-              onClick={handleAddElements}
+              onClick={(e) => {
+                console.log('[ExtractDetailsTab] Button clicked', e);
+                console.log('[ExtractDetailsTab] urls.length:', urls.length);
+                console.log('[ExtractDetailsTab] Button disabled:', urls.length === 0);
+                handleAddElements();
+              }}
               disabled={urls.length === 0}
               style={{
                 marginTop: '8px',
@@ -1042,12 +1073,18 @@ export function ExtractDetailsTab({ isPro }) {
         
         {/* Select Elements Modal */}
         {showSelectElementsModal && (
-          <SelectElementsModal
-            isOpen={showSelectElementsModal}
-            urls={urls}
-            onGoToPage={handleGoToPage}
-            onClose={() => setShowSelectElementsModal(false)}
-          />
+          <>
+            {console.log('[ExtractDetailsTab] Rendering SelectElementsModal')}
+            <SelectElementsModal
+              isOpen={showSelectElementsModal}
+              urls={urls}
+              onGoToPage={handleGoToPage}
+              onClose={() => {
+                console.log('[ExtractDetailsTab] Modal onClose called');
+                setShowSelectElementsModal(false);
+              }}
+            />
+          </>
         )}
       </div>
     </div>
