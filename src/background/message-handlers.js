@@ -512,94 +512,57 @@ async function handlePageDetailsHighlight(request, sender, sendResponse) {
   try {
     const { urls } = request.data || {};
     if (!urls || urls.length === 0) {
-      sendResponse({ success: false, error: 'No URLs provided' });
-      return;
+      throw new Error('No URLs provided');
     }
     
-    // Store ALL URLs for later extraction (not just the selected one)
-    // Get the full URL list from storage if needed
-    const fullUrls = await StorageManager.retrieve('pageDetailsUrls') || urls;
-    await StorageManager.save('pageDetailsUrls', fullUrls);
+    // Store the requesting tab ID so we can send results back
+    console.log('[Background] Storing requesting tab ID:', sender.tab.id);
     await StorageManager.save('pageDetailsRequestingTabId', sender.tab.id);
     
-    // Store the state that we're in page details mode
-    await StorageManager.save('pageDetailsMode', true);
+    // Create new tab for each URL
+    const url = urls[0]; // Use the first URL
+    console.log('[Background] Creating new tab for URL:', url);
     
-    // Open the selected URL (first URL in the array) in a new tab
-    const newTab = await chrome.tabs.create({ 
-      url: urls[0],
-      active: true 
+    const newTab = await chrome.tabs.create({
+      url: url,
+      active: true
     });
     
-    // Set a timeout for the entire operation
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout waiting for page to load')), 30000)
-    );
+    console.log('[Background] Created new tab:', newTab.id);
     
-    try {
-      // Wait for tab to load with timeout
-      await Promise.race([
-        new Promise((resolve) => {
-          const listener = (tabId, changeInfo) => {
-            if (tabId === newTab.id && changeInfo.status === 'complete') {
-              chrome.tabs.onUpdated.removeListener(listener);
-              resolve();
-            }
-          };
-          chrome.tabs.onUpdated.addListener(listener);
-        }),
-        timeout
-      ]);
-    } catch (timeoutError) {
-      console.error('[Background] Timeout waiting for page to load');
-      await chrome.tabs.remove(newTab.id).catch(() => {});
-      sendResponse({ success: false, error: 'Page load timeout' });
-      return;
-    }
-    
-    // Small delay to ensure page is fully rendered
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Check if tab still exists before injecting
-    try {
-      await chrome.tabs.get(newTab.id);
-    } catch (error) {
-      console.error('[Background] Tab was closed');
-      sendResponse({ success: false, error: 'Tab was closed' });
-      return;
-    }
-    
-    // Inject CSS files
-    try {
-      await chrome.scripting.insertCSS({
-        target: { tabId: newTab.id },
-        files: ["bundle/layers.css", "bundle/styles.css"],
-      });
-    } catch (cssError) {
-      console.error('[Background] CSS injection error:', cssError);
-      // Continue anyway as CSS might not be critical
-    }
-    
-    // Inject selector script
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: newTab.id },
-        files: ["bundle/selector.bundle.js"],
-      });
+    // Wait for the tab to load, then inject the selector
+    const tabLoadPromise = new Promise((resolve, reject) => {
+      let timeoutId;
       
-      console.log('[Background] Selector script injected successfully');
-    } catch (scriptError) {
-      console.error('[Background] Script injection error:', scriptError);
-      await chrome.tabs.remove(newTab.id).catch(() => {});
-      sendResponse({ success: false, error: 'Failed to inject selector script' });
-      return;
-    }
+      const listener = (tabId, changeInfo) => {
+        if (tabId === newTab.id && changeInfo.status === 'complete') {
+          console.log('[Background] Tab loaded, injecting selector');
+          chrome.tabs.onUpdated.removeListener(listener);
+          clearTimeout(timeoutId);
+          resolve();
+        }
+      };
+      
+      chrome.tabs.onUpdated.addListener(listener);
+      
+      // Set timeout to prevent hanging
+      timeoutId = setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(listener);
+        reject(new Error('Tab load timeout'));
+      }, 30000);
+    });
     
-    // No need to send initialization message as the script auto-initializes
-    // Just wait a bit for it to be ready
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await tabLoadPromise;
     
-        sendResponse({ success: true });
+    // Inject the selector content script
+    await chrome.scripting.executeScript({
+      target: { tabId: newTab.id },
+      files: ['bundle/selector.bundle.js']
+    });
+    
+    console.log('[Background] Selector script injected successfully');
+    
+    sendResponse({ success: true });
     
   } catch (error) {
     console.error('[Background] Page details highlight error:', error);
@@ -610,34 +573,49 @@ async function handlePageDetailsHighlight(request, sender, sendResponse) {
 // Handle page details element selection
 async function handlePageDetailsSelected(request, sender, sendResponse) {
   console.log('[Background] Page details element selected:', request);
+  console.log('[Background] Request data:', request.data);
+  console.log('[Background] Selectors received:', request.data?.selectors);
   
   try {
     // Store selected elements
-    await StorageManager.save('pageDetailsElements', request.data?.selectors || []);
+    const selectors = request.data?.selectors || [];
+    console.log('[Background] Storing selectors:', selectors);
+    await StorageManager.save('pageDetailsElements', selectors);
   
     // Get the original requesting tab ID
     const requestingTabId = await StorageManager.retrieve('pageDetailsRequestingTabId');
+    console.log('[Background] Retrieved requesting tab ID:', requestingTabId);
     
     if (requestingTabId) {
       // Send selected elements back to the original tab
+      console.log('[Background] Sending selectors back to requesting tab:', requestingTabId);
+      console.log('[Background] Sending data:', request.data);
+      
       chrome.tabs.sendMessage(requestingTabId, {
         action: 'page-details-selected-complete',
         data: request.data
       }, (response) => {
         if (chrome.runtime.lastError) {
           console.error('[Background] Failed to send elements to requesting tab:', chrome.runtime.lastError);
+        } else {
+          console.log('[Background] Successfully sent elements to requesting tab');
         }
       });
+    } else {
+      console.error('[Background] No requesting tab ID found');
     }
     
     // Close the selector tab
+    console.log('[Background] Closing selector tab:', sender.tab.id);
     chrome.tabs.remove(sender.tab.id, () => {
       if (chrome.runtime.lastError) {
         console.error('[Background] Failed to close selector tab:', chrome.runtime.lastError);
+      } else {
+        console.log('[Background] Successfully closed selector tab');
       }
-  });
+    });
   
-  sendResponse({ success: true });
+    sendResponse({ success: true });
     
   } catch (error) {
     console.error('[Background] Page details selection error:', error);
@@ -648,9 +626,27 @@ async function handlePageDetailsSelected(request, sender, sendResponse) {
 // Handle page details extraction
 async function handlePageDetailsExtract(request, sender, sendResponse) {
   console.log('[Background] Page details extract request:', request);
+  console.log('[Background] Request data:', request.data);
   
   try {
-    const { urls, elements, config } = request;
+    const { urls, elements, parallelTabs, maxWaitTime, delayBeforeExtract } = request.data || {};
+    
+    console.log('[Background] URLs to extract from:', urls);
+    console.log('[Background] Elements/selectors for extraction:', elements);
+    console.log('[Background] Config - parallelTabs:', parallelTabs, 'maxWaitTime:', maxWaitTime, 'delayBeforeExtract:', delayBeforeExtract);
+    
+    const config = { parallelTabs, maxWaitTime, delayBeforeExtract };
+    
+    if (!elements || elements.length === 0) {
+      console.error('[Background] No elements provided for extraction');
+      sendResponse({ success: false, error: 'No elements selected for extraction' });
+      return;
+    }
+    
+    console.log('[Background] Creating extraction processor with:');
+    console.log('[Background] - URLs:', urls);
+    console.log('[Background] - Elements:', elements);
+    console.log('[Background] - Config:', config);
     
     // Create extraction processor with proper configuration
     const processor = new ExtractionProcessor({
@@ -671,6 +667,55 @@ async function handlePageDetailsExtract(request, sender, sendResponse) {
     
     // Track if we've already sent a response
     let responseSent = false;
+    
+    // Set up completion callback with proper async response handling
+    processor.onComplete = (results) => {
+      console.log('[Background] Extraction completed');
+      console.log('[Background] Raw extraction results:', results);
+      console.log('[Background] Results length:', results?.length);
+      console.log('[Background] Results detail:', JSON.stringify(results, null, 2));
+      
+      if (!responseSent) {
+        responseSent = true;
+        
+        // Transform results to ensure proper format
+        const formattedResults = results?.map((urlResult, index) => {
+          console.log('[Background] Processing result for URL:', urls[index]);
+          console.log('[Background] URL result data:', urlResult);
+          
+          if (!urlResult || !urlResult.data || urlResult.data.length === 0) {
+            console.warn('[Background] No data extracted for URL:', urls[index]);
+            return {
+              url: urls[index],
+              data: {},
+              error: 'No data extracted'
+            };
+          }
+          
+          // Convert extracted data to flat object
+          const resultData = { url: urls[index] };
+          urlResult.data.forEach(item => {
+            if (item.data !== null && item.data !== undefined) {
+              resultData[item.name || `field_${item.id}`] = item.data;
+            }
+          });
+          
+          console.log('[Background] Formatted result data:', resultData);
+          return resultData;
+        }) || [];
+        
+        console.log('[Background] Final formatted results:', formattedResults);
+        console.log('[Background] Sending success response with results');
+        
+        sendResponse({ 
+          success: true, 
+          results: formattedResults
+        });
+      }
+      
+      // Cleanup
+      activeExtractions.delete('page-details');
+    };
     
     // Send status updates to the requesting tab
     const statusInterval = setInterval(() => {

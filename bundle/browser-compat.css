@@ -1,0 +1,207 @@
+/* Browser Compatibility Styles for ExtractorGPT */
+
+/* Firefox-specific fixes */
+@-moz-document url-prefix() {
+  /* Fix for Firefox shadow DOM styling */
+  .panda-extract {
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Firefox scrollbar styling */
+  .extract-small-table {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+  }
+  
+  /* Fix Firefox button styling */
+  .panda-extract-choice-button {
+    -moz-appearance: none;
+  }
+}
+
+/* Safari-specific fixes */
+@supports (-webkit-appearance: none) and (stroke-color: transparent) {
+  /* Safari shadow DOM fixes */
+  .panda-extract {
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  /* Safari backdrop filter support */
+  .layer-popup-bg {
+    -webkit-backdrop-filter: blur(2px);
+  }
+  
+  .panda-extract-element-info-overlay {
+    -webkit-backdrop-filter: blur(4px);
+  }
+}
+
+/* Edge-specific fixes */
+@supports (-ms-ime-align: auto) {
+  /* Edge scrollbar styling */
+  .extract-small-table::-webkit-scrollbar {
+    width: 8px;
+  }
+}
+
+/* Chrome/Chromium fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) and (min-resolution: 0.001dpcm) {
+  /* Chrome-specific optimizations */
+  .panda-extract {
+    font-smoothing: antialiased;
+  }
+}
+
+/* High DPI display fixes */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Ensure crisp borders on retina displays */
+  .panda-highlight-collection-element,
+  .panda-highlight-element,
+  .panda-extract-cursor-move-overlay {
+    outline-width: 1px;
+    outline-offset: 1px;
+    transform: translateZ(0); /* Force GPU acceleration */
+  }
+}
+
+/* Webkit-based browsers (Chrome, Safari, Edge) */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  /* Webkit-specific input styling */
+  input[type="text"],
+  input[type="number"] {
+    -webkit-appearance: none;
+  }
+  
+  /* Webkit animation performance */
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+      -webkit-transform: translateY(4px);
+    }
+    to { 
+      opacity: 1; 
+      -webkit-transform: translateY(0);
+    }
+  }
+}
+
+/* Focus visible polyfill for older browsers */
+.panda-extract-choice-button:focus {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+.panda-extract-choice-button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.panda-extract-choice-button:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+/* Flexbox fallbacks for older browsers */
+.extractor-panel {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+}
+
+/* Grid fallbacks */
+@supports not (display: grid) {
+  .extract-small-table {
+    display: table;
+    width: 100%;
+  }
+}
+
+/* CSS Variables fallback for older browsers */
+.panda-extract {
+  /* Fallback colors for browsers that don't support CSS variables */
+  color: #ffffff;
+  background-color: #1a1a1a;
+}
+
+/* Modern browsers with CSS variable support */
+@supports (--css: variables) {
+  .panda-extract {
+    --primary-color: #7c3aed;
+    --primary-hover: #6d28d9;
+    --primary-active: #5b21b6;
+    --text-primary: rgba(255, 255, 255, 0.9);
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-muted: rgba(255, 255, 255, 0.5);
+    --bg-primary: #1a1a1a;
+    --bg-secondary: rgba(0, 0, 0, 0.9);
+    --border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Ensure consistent box-sizing across browsers */
+.panda-extract *,
+.panda-extract *::before,
+.panda-extract *::after {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Normalize button styles across browsers */
+.panda-extract button {
+  -webkit-appearance: button;
+  -moz-appearance: button;
+  appearance: button;
+  margin: 0;
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  text-transform: none;
+}
+
+/* Ensure consistent rendering of scrollbars across browsers */
+.panda-extract ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.panda-extract ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.panda-extract ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.panda-extract ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Firefox custom scrollbar */
+@supports (scrollbar-width: thin) {
+  .panda-extract * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Ensure pointer events work correctly in all browsers */
+.panda-extract-cursor-move-overlay,
+.panda-extract-similar-element-overlay {
+  pointer-events: none !important;
+  -webkit-pointer-events: none !important;
+  -moz-pointer-events: none !important;
+}
+
+/* Fix for Safari's handling of fixed positioning */
+@supports (-webkit-overflow-scrolling: touch) {
+  #extractor-gpt-ui {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+} 

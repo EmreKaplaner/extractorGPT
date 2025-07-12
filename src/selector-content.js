@@ -8,6 +8,57 @@ import { ExtractionEngine } from './engine/extraction-engine.js';
 import { ShadowDomUtils } from './ui/shadow-dom-utils.js';
 import CssSelectorUtils from './selection/css-selector-utils.js';
 import MessageUtils from './utils/message-utils.js';
+
+// CRITICAL: Add .dot() method to String prototype for class name handling
+// This is required for CursorHighlighter to work properly in selector context
+if (!String.prototype.dot) {
+  String.prototype.dot = function() {
+    return '.' + this;
+  };
+}
+
+// CRITICAL: Inject CSS for cursor overlay highlighting
+// This ensures the blue rectangle highlighting works in the selector page
+if (!document.querySelector('style[data-extractor-gpt-selector]')) {
+  const extractionStyle = document.createElement('style');
+  extractionStyle.setAttribute('data-extractor-gpt-selector', 'true');
+  extractionStyle.textContent = `
+    /* Cursor Overlay - Blue highlighting rectangle */
+    .panda-extract-cursor-move-overlay {
+      position: absolute;
+      pointer-events: none;
+      outline: 2px solid rgba(0, 0, 255, 0.727);
+      border-radius: 4px;
+      background-color: rgba(12, 136, 244, 0.4);
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.4);
+      z-index: 2147483647;
+      transition: all 0.4s ease-in-out;
+    }
+    
+    /* Collection and item highlighting */
+    .panda-highlight-collection-element {
+      outline: 2px solid #2196F3 !important;
+      background: rgba(33, 150, 243, 0.1) !important;
+      cursor: pointer !important;
+    }
+    
+    .panda-extract-highlighted-item {
+      outline: 2px solid #FF9800 !important;
+      background: rgba(255, 152, 0, 0.1) !important;
+      cursor: pointer !important;
+    }
+    
+    .panda-highlight-child-element-active {
+      background-color: rgba(255, 255, 0, 0.5) !important;
+      border: 2px dotted rgba(255, 0, 0, 0.8) !important;
+      box-shadow: 0 0 10px rgba(255, 255, 0, 0.5) !important;
+    }
+    
+    /* Z-index layers */
+    .panda-z-2 { z-index: 2147483646; }
+  `;
+  document.head.appendChild(extractionStyle);
+}
 // Simple icon components
 const CircleIcon = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -57,8 +108,18 @@ const PageDetailsSelector = () => {
   
   // Handle element selection
   const handleElementClick = useCallback((data) => {
-    const element = data.data?.hoveredSelection || data.data.element;
-    if (element) {
+    console.log('[PageDetailsSelector] handleElementClick called with:', data);
+    
+    // Extract element from the data structure passed by SelectionEngine
+    const element = data.data?.hoveredSelection || data.data?.element;
+    
+    if (!element) {
+      console.warn('[PageDetailsSelector] No element found in click data:', data);
+      return;
+    }
+    
+    console.log('[PageDetailsSelector] Element selected:', element);
+    
       setSelectedElements(prev => {
         // Remove parent/child duplicates
         const isParentOf = (parent, child) => {
@@ -70,17 +131,22 @@ const PageDetailsSelector = () => {
           return false;
         };
         
+      // Filter out elements that are parents or children of the new element
         const filtered = prev
           .filter(el => !isParentOf(el, element))
           .filter(el => !isParentOf(element, el));
         
-        return [...filtered, element];
+      // Add the new element
+      const newSelection = [...filtered, element];
+      console.log('[PageDetailsSelector] Updated selection:', newSelection);
+      
+      return newSelection;
       });
-    }
   }, []);
   
   // Handle element hover
   const handleElementHovered = useCallback((data) => {
+    console.log('[PageDetailsSelector] handleElementHovered called');
     const { element, event } = data;
     if (element) {
       setHoveredElement(element);
@@ -91,35 +157,69 @@ const PageDetailsSelector = () => {
       // Extract preview data
       ExtractionEngine.findSimpleExtractableElementsAsync({ element })
         .then(results => {
+          console.log('[PageDetailsSelector] Extractables found:', results);
           setExtractables(results || []);
+        })
+        .catch(err => {
+          console.error('[PageDetailsSelector] Error finding extractables:', err);
+          setExtractables([]);
         });
     }
   }, []);
   
   // Generate selectors for selected elements
   const generateSelectors = async () => {
+    console.log('[PageDetailsSelector] generateSelectors called');
+    console.log('[PageDetailsSelector] selectedElements:', selectedElements);
+    
+    if (!selectedElements || selectedElements.length === 0) {
+      console.warn('[PageDetailsSelector] No elements selected for selector generation');
+      return [];
+    }
+    
     const elements = selectedElements.filter(Boolean);
-    const allExtractables = await Promise.all(
-      elements.map(element => 
-        ExtractionEngine.findSimpleExtractableElementsAsync({ element })
-      )
-    );
+    console.log('[PageDetailsSelector] Filtered elements:', elements);
     
-    const flatExtractables = allExtractables.flat();
+    if (elements.length === 0) {
+      console.warn('[PageDetailsSelector] No valid elements after filtering');
+      return [];
+    }
     
-    return flatExtractables.filter(Boolean).map(item => {
-      const { element, type } = item;
-      if (!element || !element.parentElement) return null;
+    const result = [];
+    
+    for (const element of elements) {
+      try {
+        console.log('[PageDetailsSelector] Processing element:', element);
+        
+        // Get extractable data for this element
+        const extractables = await ExtractionEngine.findSimpleExtractableElementsAsync({ element });
+        console.log('[PageDetailsSelector] Extractables for element:', extractables);
+    
+        if (!extractables || extractables.length === 0) {
+          console.warn('[PageDetailsSelector] No extractables found for element:', element);
+          continue;
+        }
+        
+        // Generate selectors for each extractable
+        for (const extractable of extractables) {
+          const targetElement = extractable.element;
+          if (!targetElement || !targetElement.parentElement) {
+            console.warn('[PageDetailsSelector] Invalid target element:', targetElement);
+            continue;
+          }
+          
+          console.log('[PageDetailsSelector] Generating selectors for:', targetElement);
       
       const selectors = [];
       
-      // Try general selector
+          // Try different selector generation methods
       try {
-        const generalSelector = CssSelectorUtils.getGeneralizedCssSelector({ element });
+            // General selector
+            const generalSelector = CssSelectorUtils.getGeneralizedCssSelector({ element: targetElement });
         if (generalSelector) {
           const index = CssSelectorUtils.verifySelector({
             rootView: document,
-            element,
+                element: targetElement,
             selector: generalSelector
           });
           if (index !== null) {
@@ -131,15 +231,17 @@ const PageDetailsSelector = () => {
             });
           }
         }
-      } catch (e) {}
+          } catch (e) {
+            console.warn('[PageDetailsSelector] Error generating general selector:', e);
+          }
       
-      // Try nth-type selector
       try {
-        const nthTypeSelector = CssSelectorUtils.getSelectorNthType({ element });
+            // Nth-type selector
+            const nthTypeSelector = CssSelectorUtils.getSelectorNthType({ element: targetElement });
         if (nthTypeSelector) {
           const index = CssSelectorUtils.verifySelector({
             rootView: document,
-            element,
+                element: targetElement,
             selector: nthTypeSelector
           });
           if (index !== null) {
@@ -151,15 +253,17 @@ const PageDetailsSelector = () => {
             });
           }
         }
-      } catch (e) {}
+          } catch (e) {
+            console.warn('[PageDetailsSelector] Error generating nth-type selector:', e);
+          }
       
-      // Try nth-child selector
       try {
-        const nthChildSelector = CssSelectorUtils.getSelectorNthChild({ element });
+            // Nth-child selector
+            const nthChildSelector = CssSelectorUtils.getSelectorNthChild({ element: targetElement });
         if (nthChildSelector) {
           const index = CssSelectorUtils.verifySelector({
             rootView: document,
-            element,
+                element: targetElement,
             selector: nthChildSelector
           });
           if (index !== null) {
@@ -171,44 +275,106 @@ const PageDetailsSelector = () => {
             });
           }
         }
-      } catch (e) {}
+          } catch (e) {
+            console.warn('[PageDetailsSelector] Error generating nth-child selector:', e);
+          }
       
-      return selectors.length > 0 ? {
+          // If we have selectors, add them to the result
+          if (selectors.length > 0) {
+            result.push({
         elementId: generateUniqueId(),
-        name: getElementName(element),
-        type,
+              name: getElementName(targetElement),
+              type: extractable.type,
         selectors
-      } : null;
-    }).filter(Boolean);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[PageDetailsSelector] Error processing element:', element, err);
+      }
+    }
+    
+    console.log('[PageDetailsSelector] Final generated selectors:', result);
+    return result;
   };
   
   // Preview selected elements
   const handlePreview = async () => {
+    console.log('[PageDetailsSelector] handlePreview called');
+    
+    if (selectedElements.length === 0) {
+      console.warn('[PageDetailsSelector] No elements selected for preview');
+      return;
+    }
+    
+    try {
     const data = await Promise.all(
       selectedElements.map(async element => {
         const extractables = await ExtractionEngine.findSimpleExtractableElementsAsync({ element });
         return { element, extractables };
       })
     );
+      
+      console.log('[PageDetailsSelector] Preview data:', data);
     setPreviewData(data);
     setShowPreview(true);
+    } catch (err) {
+      console.error('[PageDetailsSelector] Error generating preview:', err);
+    }
   };
   
   // Complete selection
   const handleComplete = async () => {
+    console.log('[PageDetailsSelector] handleComplete called');
+    console.log('[PageDetailsSelector] selectedElements length:', selectedElements.length);
+    
+    if (selectedElements.length === 0) {
+      console.warn('[PageDetailsSelector] No elements selected');
+      alert('Please select at least one element before completing the selection.');
+      return;
+    }
+    
+    try {
     const selectors = await generateSelectors();
+    console.log('[PageDetailsSelector] Generated selectors:', selectors);
+    
+    if (selectors.length === 0) {
+      console.warn('[PageDetailsSelector] No selectors generated');
+        alert('Could not generate selectors for the selected elements. Please try selecting different elements.');
+      return;
+    }
     
     // Send to background
-    MessageUtils.sendMessageToBackground({
-      action: 'page-details-selected',
-      data: { selectors }
-    }).catch(err => {
-      console.error('Failed to send selectors:', err);
-    });
+    console.log('[PageDetailsSelector] Sending selectors to background');
+      
+      const response = await MessageUtils.sendMessageToBackground({
+        action: 'page-details-selected',
+        data: { selectors }
+      });
+      
+      console.log('[PageDetailsSelector] Background response:', response);
+      
+      if (response && response.success) {
+        console.log('[PageDetailsSelector] Selection completed successfully');
+        // Close the selector window
+        window.close();
+      } else {
+        console.error('[PageDetailsSelector] Background rejected selection:', response);
+        alert('Failed to complete selection. Please try again.');
+      }
+    } catch (err) {
+      console.error('[PageDetailsSelector] Failed to send selectors:', err);
+      alert('Error completing selection. Please try again.');
+    }
   };
   
   // Initialize selection engine
   useEffect(() => {
+    console.log('[PageDetailsSelector] Initializing selection engine');
+    
+    // Add cursor style to body for page-details selection mode
+    document.body.classList.add('panda-page-details-selection-mode');
+    
     selectionEngineRef.current = new SelectionEngine({
       config: {},
       onElementClick: handleElementClick,
@@ -223,7 +389,13 @@ const PageDetailsSelector = () => {
     selectionEngineRef.current.startPageDetailsSelectMode();
     
     return () => {
+      console.log('[PageDetailsSelector] Cleaning up selection engine');
+      // Remove cursor style from body
+      document.body.classList.remove('panda-page-details-selection-mode');
+      
+      if (selectionEngineRef.current) {
       selectionEngineRef.current.detach();
+      }
     };
   }, [handleElementClick, handleElementHovered]);
   
@@ -391,7 +563,7 @@ const PageDetailsSelector = () => {
       )}
       
       {/* Styles */}
-      <style jsx>{`
+      <style>{`
         @keyframes ping-slow {
           75%, 100% {
             transform: scale(2);

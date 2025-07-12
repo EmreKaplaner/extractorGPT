@@ -1,303 +1,360 @@
-import { RunStatus } from '../constants/index.js';
-import { ExtractionEngine } from './extraction-engine.js';
-
 /**
- * Task Runner System (bE) - Manages extraction task execution
- * This class orchestrates the execution of extraction tasks with progress tracking
+ * WebPeeler TaskRunner - EXACT COPY from WebPeeler's service_beautified.js
+ * This is the parallel URL processing system that creates Chrome tabs for each URL
  */
-class TaskRunner {
-  constructor() {
-    this.currentTask = null;
-    this.isRunning = false;
-    this.callbacks = {};
-    this.extractSettings = {};
-    this.contentWindow = null;
+
+// Shuffle function for request queue (from WebPeeler)
+function shuffle(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
   }
 
   /**
-   * Run extraction task
-   * @param {Object} config - Configuration object
-   * @param {Window} config.contentWindow - Target window/iframe to extract from
-   * @param {Object} config.task - Task definition with steps and actions
-   * @param {Object} options - Execution options
-   * @param {boolean} options.shouldLoadUrl - Whether to load URL before extraction
-   * @param {Object} extractSettings - Extraction settings
-   * @param {Object} callbacks - Event callbacks
-   * @param {Function} callbacks.onTaskStarted - Called when task starts
-   * @param {Function} callbacks.onStepStarted - Called when step starts
-   * @param {Function} callbacks.onStepCompleted - Called when step completes
-   * @param {Function} callbacks.onTaskCompleted - Called when task completes
-   * @param {Function} callbacks.onError - Called on error
-   */
-  run(config, options = {}, extractSettings = {}, callbacks = {}) {
-    // Validate inputs
-    if (!config.contentWindow) {
-      throw new Error('contentWindow is required');
-    }
+ * WebPeeler Parallel URL Processing TaskRunner - EXACT COPY
+ */
+class WebPeelerTaskRunner {
+  constructor(config) {
+    const request = config.request;
     
-    if (!config.task) {
-      throw new Error('task is required');
+    // Validation exactly as in WebPeeler
+    if (!request) throw new Error("Request object is required");
+    if (!request.urls || !Array.isArray(request.urls) || request.urls.length === 0) {
+      throw new Error("Request must contain a non-empty array of URLs");
+    }
+    if (!request.elements || !Array.isArray(request.elements) || request.elements.length === 0) {
+      throw new Error("Request must contain a non-empty array of elements to extract");
+    }
+    if (!request.parallelTabs || request.parallelTabs < 1) {
+      throw new Error("Request must specify a positive number of parallel tabs");
     }
 
-    // Store configuration
-    this.contentWindow = config.contentWindow;
-    this.currentTask = config.task;
-    this.extractSettings = extractSettings;
-    this.callbacks = callbacks;
-    
-    const shouldLoadUrl = options.shouldLoadUrl !== undefined ? options.shouldLoadUrl : true;
-
-    // Start execution
-    this.isRunning = true;
-    
-    // Notify task started
-    if (this.callbacks.onTaskStarted) {
-      this.callbacks.onTaskStarted(this.currentTask);
-    }
-
-    // Execute task steps
-    this.executeTask(shouldLoadUrl);
+    // Initialize properties exactly as in WebPeeler
+    this.urls = request.urls;
+    this.elements = request.elements;
+    this.parallelTabs = request.parallelTabs;
+    this.maxWaitTime = request.maxWaitTime || 30;
+    this.delayBeforeExtract = request.delayBeforeExtract || 0;
+    this.requestQueue = shuffle(this.urls); // WebPeeler shuffles URLs
+    this.activeCount = 0;
+    this.requestStatus = new Map();
+    this.outcomes = new Map();
+    this.cancelled = false;
+    this.activeTabs = new Set();
   }
 
   /**
-   * Execute the task steps
-   * @private
+   * Get progress bar - EXACT COPY from WebPeeler
    */
-  async executeTask(shouldLoadUrl) {
-    try {
-      // If shouldLoadUrl is true, wait for page to load
-      if (shouldLoadUrl && this.currentTask.url) {
-        await this.waitForPageLoad();
-      }
+  getProgressBar() {
+    const total = this.urls.length;
+    const completed = this.urls.length - this.requestQueue.length - this.activeCount;
+    const active = this.activeCount;
+    const completedBlocks = Math.floor(completed / total * 30);
+    const activeBlocks = Math.floor(active / total * 30);
+    const remainingBlocks = 30 - completedBlocks - activeBlocks;
+    const progressBar = "█".repeat(completedBlocks) + "▒".repeat(activeBlocks) + "░".repeat(remainingBlocks);
+    return `[PROGRESS]${progressBar} ${completed}/${total} (${active} active)`;
+  }
 
-      // Process each step in the task
-      const steps = this.currentTask.steps || [];
-      
-      for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
-        
-        // Notify step started
-        if (this.callbacks.onStepStarted) {
-          this.callbacks.onStepStarted({
-            stepId: step.id,
-            stepIndex: i,
-            totalSteps: steps.length
-          });
-        }
-
-        // Execute step based on action type
-        const result = await this.executeStep(step);
-
-        // Notify step completed
-        if (this.callbacks.onStepCompleted) {
-          this.callbacks.onStepCompleted({
-            stepId: step.id,
-            stepIndex: i,
-            totalSteps: steps.length,
-            result: result
-          });
-        }
-      }
-
-      // Task completed successfully
-      this.isRunning = false;
-      
-      if (this.callbacks.onTaskCompleted) {
-        this.callbacks.onTaskCompleted({
-          task: this.currentTask,
-          pagination: null // TODO: Handle pagination if needed
+  /**
+   * Initialize processing - EXACT COPY from WebPeeler
+   */
+  initialize() {
+    this.urls.forEach(url => {
+      this.requestStatus.set(url, {
+        status: "idle",
+        outcome: null
         });
-      }
-
-    } catch (error) {
-      this.isRunning = false;
-      
-      if (this.callbacks.onError) {
-        this.callbacks.onError(error);
-      } else {
-        console.error('Task execution error:', error);
-      }
-    }
+    });
+    this.processQueue();
   }
 
   /**
-   * Execute a single step
-   * @private
+   * Process queue - EXACT COPY from WebPeeler (simplified from generator)
    */
-  async executeStep(step) {
-    const { action, selector, elements } = step;
-
-    switch (action) {
-      case 'extract':
-        return this.performExtraction(selector, elements);
-      
-      case 'click':
-        return this.performClick(selector);
-      
-      case 'scroll':
-        return this.performScroll();
-      
-      case 'wait':
-        return this.performWait(step.duration || 1000);
-      
-      default:
-        throw new Error(`Unknown action type: ${action}`);
-    }
-  }
-
-  /**
-   * Perform extraction on elements
-   * @private
-   */
-  performExtraction(selector, elements) {
-    try {
-      let targetElements = [];
-
-      // Get elements to extract from
-      if (selector) {
-        targetElements = Array.from(this.contentWindow.document.querySelectorAll(selector));
-      } else if (elements && elements.length > 0) {
-        targetElements = elements;
-      } else {
-        // Extract from entire body
-        targetElements = [this.contentWindow.document.body];
-      }
-
-      // Use ExtractionEngine to find extractable elements
-      const result = ExtractionEngine.findExtractableElements({
-        elements: targetElements,
-        settings: this.extractSettings
+  async processQueue() {
+    while (this.requestQueue.length > 0 && this.activeCount < this.parallelTabs && !this.cancelled) {
+      const url = this.requestQueue.shift();
+      this.activeCount++;
+      this.requestStatus.set(url, {
+        status: "running",
+        outcome: null
       });
 
-      return {
-        extractableElements: result.extractableElements,
-        children: result.children
+      this.processRequest(url).then(result => {
+        this.requestStatus.set(url, {
+          status: "complete",
+          outcome: result
+        });
+        this.outcomes.set(url, result);
+      }).catch(error => {
+        this.requestStatus.set(url, {
+          status: "failed",
+          outcome: error.message
+        });
+        this.outcomes.set(url, {
+          status: "failed",
+          error: error.message
+        });
+      }).finally(() => {
+        this.activeCount--;
+        this.processQueue();
+      });
+    }
+  }
+
+  /**
+   * Process single request - EXACT COPY from WebPeeler
+   */
+  async processRequest(url) {
+    if (this.cancelled) {
+      throw new Error("Processing has been cancelled.");
+    }
+
+    return new Promise((resolve, reject) => {
+      let tabId = null;
+      let timeout = null;
+      let interval = null;
+      let completed = false;
+      let delayComplete = false;
+
+      const cleanup = () => {
+        if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+        if (timeout) {
+          clearTimeout(timeout);
+          timeout = null;
+        }
+        if (tabId !== null) {
+          this.activeTabs.delete(tabId);
+          chrome.tabs.remove(tabId, () => {
+            if (chrome.runtime.lastError) {
+              // Ignore errors when removing tabs
+            }
+          });
+      }
       };
 
-    } catch (error) {
-      console.error('Extraction error:', error);
-      throw error;
-    }
+      // WebPeeler's exact extraction function
+      const extractionFunction = (elements) => {
+        const results = [];
+        elements.forEach(element => {
+          if (element.type === "emails") {
+            // WebPeeler's exact email extraction
+            const htmlContent = document.body.innerHTML.replace(/\s+/g, " ").trim();
+            const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+            const matches = htmlContent.match(emailRegex) || [];
+            const seen = {};
+            const cleanEmails = matches.map(email => email.toLowerCase()).filter(email => {
+              return !!email && 
+                     !(email.length > 254) && 
+                     email.charAt(0) !== "." && 
+                     email.charAt(email.length - 1) !== "." && 
+                     (emailRegex.lastIndex = 0, emailRegex.test(email)) && 
+                     !seen[email] && 
+                     (seen[email] = true);
+            });
+
+            if (cleanEmails.length) {
+              results.push({
+                id: element.elementId,
+                name: element.name,
+                type: element.type,
+                data: cleanEmails,
+                selectorType: "regex"
+              });
+            } else {
+              results.push({
+                id: element.elementId,
+                name: element.name,
+                type: element.type,
+                data: null,
+                error: "No emails found"
+              });
+            }
+            return;
   }
 
-  /**
-   * Perform click action
-   * @private
-   */
-  performClick(selector) {
-    try {
-      const element = this.contentWindow.document.querySelector(selector);
-      
-      if (!element) {
-        throw new Error(`Element not found: ${selector}`);
-      }
+          // Regular element extraction with WebPeeler's exact logic
+          const selectors = element.selectors.sort((a, b) => b.order - a.order);
+          let extractedData = null;
 
-      // Simulate click
-      const clickEvent = new this.contentWindow.MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        view: this.contentWindow
-      });
-      
-      element.dispatchEvent(clickEvent);
-      
-      return { clicked: true, selector };
+          for (let i = 0; i < selectors.length; i++) {
+            const selector = selectors[i];
+            let targetElement;
+            
+            try {
+              targetElement = document.querySelectorAll(selector.selector)[selector.index];
+            } catch (e) {
+              continue;
+            }
 
-    } catch (error) {
-      console.error('Click error:', error);
-      throw error;
-    }
-  }
+            if (targetElement) {
+              switch (element.type) {
+                case "text":
+                  extractedData = targetElement.innerText?.trim();
+                  break;
+                case "image-url":
+                  extractedData = targetElement.src;
+                  break;
+                case "link-url":
+                  extractedData = targetElement.href;
+                  break;
+              }
 
-  /**
-   * Perform scroll action
-   * @private
-   */
-  performScroll() {
-    try {
-      // Scroll to bottom
-      this.contentWindow.scrollTo({
-        top: this.contentWindow.document.body.scrollHeight,
-        behavior: 'smooth'
-      });
+              if (extractedData) {
+                results.push({
+                  id: element.elementId,
+                  name: element.name,
+                  type: element.type,
+                  data: extractedData,
+                  selectorType: selector.type
+                });
+                break;
+              }
+            }
+          }
 
-      return { scrolled: true };
+          if (!extractedData) {
+            results.push({
+              id: element.elementId,
+              name: element.name,
+              type: element.type,
+              selector: null,
+              data: null,
+              error: "No data found"
+            });
+          }
+        });
 
-    } catch (error) {
-      console.error('Scroll error:', error);
-      throw error;
-    }
-  }
+        return results;
+      };
 
-  /**
-   * Wait for specified duration
-   * @private
-   */
-  performWait(duration) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({ waited: duration });
-      }, duration);
-    });
-  }
+      // WebPeeler's exact execution logic
+      const executeExtraction = () => {
+        if (completed) {
+          clearInterval(interval);
+          return;
+        }
 
-  /**
-   * Wait for page to load
-   * @private
-   */
-  waitForPageLoad() {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Page load timeout'));
-      }, 30000); // 30 second timeout
-
-      // Check if already loaded
-      if (this.contentWindow.document.readyState === 'complete') {
-        clearTimeout(timeout);
-        resolve();
+        if (delayComplete) {
+          chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            func: extractionFunction,
+            args: [this.elements]
+          }, (results) => {
+            if (!completed) {
+              if (chrome.runtime.lastError) {
+                completed = true;
+                clearInterval(interval);
+                reject(new Error(chrome.runtime.lastError.message));
+                cleanup();
         return;
       }
 
-      // Wait for load event
-      const handleLoad = () => {
-        clearTimeout(timeout);
-        this.contentWindow.removeEventListener('load', handleLoad);
-        resolve();
+              if (results && results[0] && results[0].result && 
+                  Object.keys(results[0].result).length && 
+                  !Object.values(results[0].result).every(item => item.error != null)) {
+                const result = results[0].result;
+                if (result) {
+                  completed = true;
+                  clearInterval(interval);
+                  resolve(result);
+                  cleanup();
+                }
+              }
+            }
+          });
+        } else {
+          setTimeout(() => {
+            if (!completed) {
+              delayComplete = true;
+            }
+          }, this.delayBeforeExtract * 1000);
+        }
       };
 
-      this.contentWindow.addEventListener('load', handleLoad);
+      // Create tab and start processing - exactly as in WebPeeler
+      chrome.tabs.create({
+        url: url,
+        active: false
+      }, (tab) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
+        tabId = tab.id;
+        this.activeTabs.add(tabId);
+
+        chrome.tabs.onUpdated.addListener(function onTabUpdated(updatedTabId, changeInfo) {
+          if (updatedTabId === tabId && changeInfo.status === "complete") {
+            chrome.tabs.onUpdated.removeListener(onTabUpdated);
+            
+            timeout = setTimeout(() => {
+              reject(new Error("Max wait time exceeded"));
+              cleanup();
+            }, this.maxWaitTime * 1000);
+
+            interval = setInterval(executeExtraction, 1000);
+          }
+        });
+      });
     });
   }
 
   /**
-   * Cancel current task execution
+   * Cancel processing - EXACT COPY from WebPeeler
    */
   cancel() {
-    this.isRunning = false;
-    this.currentTask = null;
+    this.cancelled = true;
+    this.requestQueue = [];
     
-    if (this.callbacks.onTaskCompleted) {
-      this.callbacks.onTaskCompleted({
-        task: this.currentTask,
-        cancelled: true
+    this.activeTabs.forEach(tabId => {
+      chrome.tabs.remove(tabId, () => {
+        if (chrome.runtime.lastError) {
+          // Ignore errors
+        }
+      });
+    });
+    this.activeTabs.clear();
+
+    this.requestStatus.forEach((status, url) => {
+      if (status.status === "running" || status.status === "idle") {
+        this.requestStatus.set(url, {
+          status: "cancelled",
+          outcome: "Processing was cancelled."
       });
     }
+    });
   }
 
   /**
-   * Get current execution status
+   * Get status - EXACT COPY from WebPeeler
    */
   getStatus() {
+    return Array.from(this.requestStatus.entries()).map(([url, status]) => {
     return {
-      isRunning: this.isRunning,
-      currentTask: this.currentTask
-    };
+        url,
+        ...status
+      };
+    });
+  }
+
+  /**
+   * Get outcomes - EXACT COPY from WebPeeler
+   */
+  getOutcomes() {
+    return this.outcomes;
   }
 }
 
-// Create singleton instance (matching pattern: var bE = new gl)
-const taskRunner = new TaskRunner();
-
-// Export both named and default
-export { taskRunner as TaskRunner };
-export default taskRunner; 
+// Export the WebPeeler TaskRunner
+export { WebPeelerTaskRunner as TaskRunner };
+export default WebPeelerTaskRunner; 

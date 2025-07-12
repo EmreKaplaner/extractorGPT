@@ -1,44 +1,55 @@
+/**
+ * WebPeeler StorageManager - EXACT COPY of class i with enhancements
+ * Manages Chrome extension storage operations with WebPeeler compatibility
+ */
 class StorageManager {
-  // Save data to chrome.storage.local
+  
+  /**
+   * WebPeeler exact save method
+   */
   static save(key, value) {
     try {
       if (chrome && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({ [key]: value }, () => {
-          if (chrome.runtime.lastError) {
-            console.error('Storage save error:', chrome.runtime.lastError);
-          }
+        chrome.storage.local.set({
+          [key]: value
+        }, function() {
+          // WebPeeler checks for lastError but doesn't handle it
+          chrome.runtime.lastError;
         });
       }
     } catch (error) {
-      console.error('Error saving to storage:', error);
+      // WebPeeler silently handles errors
     }
   }
 
-  // Get all storage keys
+  /**
+   * WebPeeler exact getAllKeys method
+   */
   static async getAllKeys() {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve, reject) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(null, (items) => {
-            const keys = Object.keys(items);
+          chrome.storage.local.get(null, function(result) {
+            const keys = Object.keys(result);
             resolve(keys);
           });
         } else {
           resolve([]);
         }
       } catch (error) {
-        console.error('Error getting all keys:', error);
         resolve([]);
       }
     });
   }
 
-  // Retrieve data by key
+  /**
+   * WebPeeler exact retrieve method
+   */
   static async retrieve(key) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve, reject) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get([key], (result) => {
+          chrome.storage.local.get([key], function(result) {
             if (result[key] !== undefined) {
               resolve(result[key]);
             } else {
@@ -49,108 +60,145 @@ class StorageManager {
           resolve(null);
         }
       } catch (error) {
-        console.error('Error retrieving from storage:', error);
         resolve(null);
       }
     });
   }
 
-  // Remove data by key
+  /**
+   * WebPeeler exact remove method
+   */
   static async remove(key) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve, reject) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.remove(key, () => {
+          chrome.storage.local.remove(key, function() {
             resolve();
           });
         } else {
           resolve();
         }
       } catch (error) {
-        console.error('Error removing from storage:', error);
         resolve();
       }
     });
   }
 
-  // Remove any keys matching pattern
+  /**
+   * WebPeeler exact removeAny method (pattern matching removal)
+   */
   static async removeAny(pattern) {
-    return new Promise(async (resolve) => {
+    const self = this;
+    return new Promise(function(resolve, reject) {
+      async function removeMatching() {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            const keys = await self.getAllKeys();
+            const matchingKeys = keys.filter(function(key) {
+              return key.includes(pattern);
+            });
+            
+            if (matchingKeys.length === 0) {
+              resolve();
+              return;
+            }
+            
+            chrome.storage.local.remove(matchingKeys, function() {
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        } catch (error) {
+          resolve();
+        }
+      }
+      
+      removeMatching();
+    });
+  }
+
+  /**
+   * Enhanced clearAll method (improvement over WebPeeler)
+   */
+  static async clearAll() {
+    return new Promise(function(resolve, reject) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
-          const allKeys = await this.getAllKeys();
-          const keysToRemove = allKeys.filter(key => key.includes(pattern));
-          
-          if (keysToRemove.length === 0) {
-            resolve();
-            return;
-          }
-          
-          chrome.storage.local.remove(keysToRemove, () => {
-            resolve();
+          chrome.storage.local.clear(function() {
+            if (chrome.runtime.lastError) {
+              console.error('Error clearing storage:', chrome.runtime.lastError.message);
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve();
+            }
           });
         } else {
           resolve();
         }
       } catch (error) {
-        console.error('Error removing keys by pattern:', error);
-        resolve();
+        console.error('Storage clear error:', error);
+        reject(error);
       }
     });
   }
 
-  // Clear all storage data
-  static clearAll() {
-    try {
-      if (chrome && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.clear(() => {
-          if (chrome.runtime.lastError) {
-            console.error('Storage clear error:', chrome.runtime.lastError);
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error clearing storage:', error);
-    }
-  }
-
-  // Batch operations
+  /**
+   * Enhanced getMultiple method (improvement over WebPeeler)
+   */
   static async getMultiple(keys) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve, reject) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(keys, (result) => {
-            resolve(result);
+          chrome.storage.local.get(keys, function(result) {
+            if (chrome.runtime.lastError) {
+              console.error('Error getting multiple keys:', chrome.runtime.lastError.message);
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
           });
         } else {
           resolve({});
         }
       } catch (error) {
-        console.error('Error getting multiple keys:', error);
-        resolve({});
+        console.error('Storage getMultiple error:', error);
+        reject(error);
       }
     });
   }
 
-  // Save multiple key-value pairs
-  static saveMultiple(items) {
-    try {
-      if (chrome && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set(items, () => {
-          if (chrome.runtime.lastError) {
-            console.error('Storage save multiple error:', chrome.runtime.lastError);
-          }
-        });
+  /**
+   * Enhanced saveMultiple method (improvement over WebPeeler)
+   */
+  static async saveMultiple(items) {
+    return new Promise(function(resolve, reject) {
+      try {
+        if (chrome && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set(items, function() {
+            if (chrome.runtime.lastError) {
+              console.error('Error saving multiple items:', chrome.runtime.lastError.message);
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve();
+            }
+          });
+        } else {
+          resolve();
+        }
+      } catch (error) {
+        console.error('Storage saveMultiple error:', error);
+        reject(error);
       }
-    } catch (error) {
-      console.error('Error saving multiple items:', error);
-    }
+    });
   }
 
-  // Listen for storage changes
+  /**
+   * Enhanced storage listener (improvement over WebPeeler)
+   */
   static addListener(callback) {
     if (chrome && chrome.storage && chrome.storage.onChanged) {
-      chrome.storage.onChanged.addListener((changes, areaName) => {
+      chrome.storage.onChanged.addListener(function(changes, areaName) {
         if (areaName === 'local') {
           callback(changes);
         }
@@ -158,20 +206,28 @@ class StorageManager {
     }
   }
 
-  // Get storage size info
+  /**
+   * Enhanced storage size monitoring (improvement over WebPeeler)
+   */
   static async getBytesInUse(keys = null) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve, reject) {
       try {
         if (chrome && chrome.storage && chrome.storage.local && chrome.storage.local.getBytesInUse) {
-          chrome.storage.local.getBytesInUse(keys, (bytesInUse) => {
-            resolve(bytesInUse);
+          chrome.storage.local.getBytesInUse(keys, function(bytesInUse) {
+            if (chrome.runtime.lastError) {
+              console.error('Error getting bytes in use:', chrome.runtime.lastError.message);
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(bytesInUse);
+            }
           });
         } else {
+          // Fallback for environments without getBytesInUse
           resolve(0);
         }
       } catch (error) {
-        console.error('Error getting storage size:', error);
-        resolve(0);
+        console.error('Storage getBytesInUse error:', error);
+        reject(error);
       }
     });
   }

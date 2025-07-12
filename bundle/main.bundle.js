@@ -50757,7 +50757,7 @@ select{
         return `Estimated time remaining: ${minutes}m ${seconds}s`;
       }
       return `Estimated time remaining: ${seconds}s`;
-    })()), /* @__PURE__ */ import_react8.default.createElement("style", { jsx: true }, `
+    })()), /* @__PURE__ */ import_react8.default.createElement("style", null, `
         @keyframes pulse {
           0%, 100% {
             opacity: 1;
@@ -50798,11 +50798,17 @@ select{
     const urlInputRef = (0, import_react9.useRef)(null);
     (0, import_react9.useEffect)(() => {
       const handleMessage = (request) => {
+        console.log("[ExtractDetailsTab] Received message:", request);
         if (request.action === "page-details-selected-complete" && request.data) {
+          console.log("[ExtractDetailsTab] Page details selected complete received");
+          console.log("[ExtractDetailsTab] Request data:", request.data);
+          console.log("[ExtractDetailsTab] Selectors:", request.data.selectors);
           setSelectedElements(request.data.selectors || []);
           setIsSelectingElements(false);
           setError("");
+          console.log("[ExtractDetailsTab] Set selected elements to:", request.data.selectors || []);
         } else if (request.action === "status-update-extract" && request.data) {
+          console.log("[ExtractDetailsTab] Status update received:", request.data);
           const statusData = request.data;
           const completed = statusData.filter((item) => item.status === "complete").length;
           const failed = statusData.filter((item) => item.status === "failed").length;
@@ -50814,16 +50820,35 @@ select{
           } else {
             setExtractionStatus("running");
           }
+        } else {
+          console.log("[ExtractDetailsTab] Unknown message action:", request.action);
         }
       };
-      chrome.runtime.onMessage.addListener(handleMessage);
+      if (isExtensionContextValid()) {
+        chrome.runtime.onMessage.addListener(handleMessage);
+      }
+      const contextCheckInterval = setInterval(() => {
+        if (!isExtensionContextValid()) {
+          console.warn("[ExtractDetailsTab] Extension context invalidated during operation");
+          showExtensionUpdateNotification();
+          clearInterval(contextCheckInterval);
+        }
+      }, 2e3);
       return () => {
-        chrome.runtime.onMessage.removeListener(handleMessage);
+        if (chrome.runtime && chrome.runtime.onMessage) {
+          chrome.runtime.onMessage.removeListener(handleMessage);
+        }
+        clearInterval(contextCheckInterval);
       };
     }, []);
     (0, import_react9.useEffect)(() => {
       console.log("[ExtractDetailsTab] showSelectElementsModal changed:", showSelectElementsModal);
     }, [showSelectElementsModal]);
+    (0, import_react9.useEffect)(() => {
+      console.log("[ExtractDetailsTab] selectedElements changed:", selectedElements);
+      console.log("[ExtractDetailsTab] selectedElements length:", selectedElements.length);
+      console.log("[ExtractDetailsTab] selectedElements content:", selectedElements);
+    }, [selectedElements]);
     const handleCSVUpload = (event2) => {
       const file = event2.target.files[0];
       if (!file)
@@ -50861,50 +50886,55 @@ select{
     };
     const isExtensionContextValid = () => {
       try {
-        return chrome.runtime && chrome.runtime.id;
+        return chrome.runtime && chrome.runtime.id && !chrome.runtime.lastError;
       } catch (e) {
         return false;
       }
     };
+    const showExtensionUpdateNotification = () => {
+      setError("Extension was updated. Please refresh this page to continue using the extension.");
+      setIsSelectingElements(false);
+      setIsExtracting(false);
+      try {
+        if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+          window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+          console.log("[ExtractDetailsTab] Stopped page details selection mode after extension context invalidation");
+        }
+      } catch (error2) {
+        console.warn("[ExtractDetailsTab] Error stopping selection mode during context invalidation:", error2);
+      }
+    };
     const sendMessageSafely = (message, callback) => {
       if (!isExtensionContextValid()) {
-        console.error("Extension context invalidated");
-        setError("Extension was updated. Please refresh the page and try again.");
-        setIsSelectingElements(false);
-        setIsExtracting(false);
-        if (callback)
-          callback({ success: false, error: "Extension context invalidated" });
+        console.error("[ExtractDetailsTab] Extension context not valid");
+        showExtensionUpdateNotification();
         return;
       }
       try {
         chrome.runtime.sendMessage(message, (response) => {
           if (chrome.runtime.lastError) {
-            console.error("Chrome runtime error:", chrome.runtime.lastError);
-            if (chrome.runtime.lastError.message?.includes("Extension context invalidated")) {
-              setError("Extension was updated. Please refresh the page and try again.");
-            } else {
-              setError("Failed to communicate with extension. Please try again.");
+            console.error("[ExtractDetailsTab] Chrome runtime error:", chrome.runtime.lastError);
+            if (chrome.runtime.lastError.message?.includes("Extension context invalidated") || chrome.runtime.lastError.message?.includes("message port closed")) {
+              console.error("[ExtractDetailsTab] Extension context invalidated during operation");
+              showExtensionUpdateNotification();
+              setIsExtracting(false);
+              setExtractionStatus("idle");
+              return;
             }
-            setIsSelectingElements(false);
-            setIsExtracting(false);
-            if (callback)
+            if (callback) {
               callback({ success: false, error: chrome.runtime.lastError.message });
+            }
           } else {
-            if (callback)
+            if (callback) {
               callback(response);
+            }
           }
         });
       } catch (error2) {
-        console.error("Error sending message:", error2);
-        if (error2.message?.includes("Extension context invalidated")) {
-          setError("Extension was updated. Please refresh the page and try again.");
-        } else {
-          setError("Extension error. Please try again.");
-        }
-        setIsSelectingElements(false);
-        setIsExtracting(false);
-        if (callback)
+        console.error("[ExtractDetailsTab] Error sending message:", error2);
+        if (callback) {
           callback({ success: false, error: error2.message });
+        }
       }
     };
     const handleAddElements = async () => {
@@ -50917,6 +50947,11 @@ select{
         return;
       }
       try {
+        if (!isExtensionContextValid()) {
+          console.error("[ExtractDetailsTab] Extension context not valid");
+          showExtensionUpdateNotification();
+          return;
+        }
         console.log("[ExtractDetailsTab] Storing URLs in chrome storage");
         if (chrome && chrome.storage && chrome.storage.local) {
           await chrome.storage.local.set({ pageDetailsUrls: urls });
@@ -50929,6 +50964,10 @@ select{
         console.log("[ExtractDetailsTab] Modal should now be visible");
       } catch (error2) {
         console.error("[ExtractDetailsTab] Error in handleAddElements:", error2);
+        if (error2.message && error2.message.includes("Extension context invalidated")) {
+          showExtensionUpdateNotification();
+          return;
+        }
         console.log("[ExtractDetailsTab] Error with storage, but showing modal anyway");
         setShowSelectElementsModal(true);
         setError("");
@@ -50942,7 +50981,7 @@ select{
         action: "page-details-highlight",
         data: {
           urls: [selectedUrl]
-          // Send only the selected URL
+          // Send as array to match background script expectation
         }
       }, (response) => {
         if (!response?.success) {
@@ -50969,9 +51008,9 @@ select{
       try {
         sendMessageSafely({
           action: "page-details-extract",
-          urls,
-          elements: selectedElements,
-          config: {
+          data: {
+            urls,
+            elements: selectedElements,
             parallelTabs,
             maxWaitTime,
             delayBeforeExtract
@@ -50980,6 +51019,10 @@ select{
           console.log("[ExtractDetailsTab] Extraction response:", response);
           setIsExtracting(false);
           setExtractionStatus("idle");
+          if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+            window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+            console.log("[ExtractDetailsTab] Stopped page details selection mode after extraction");
+          }
           if (response && response.success) {
             console.log("[ExtractDetailsTab] Setting extraction results:", response.results);
             const results = response.results || [];
@@ -50989,18 +51032,37 @@ select{
             }, 100);
             if (results.length === 0) {
               setError("No data was extracted. Please check that the selected elements contain data on the target pages.");
+            } else {
+              const allHaveErrors = results.every((result) => result.error);
+              if (allHaveErrors) {
+                setError("All extractions failed. Please verify that the selected elements exist on the target pages.");
+              }
             }
           } else if (response && response.error) {
-            setError(response.error);
+            console.error("[ExtractDetailsTab] Extraction error:", response.error);
+            if (response.error.includes("Max wait time exceeded")) {
+              setError("Extraction timed out. The pages may be loading slowly or the selected elements may not exist. Try increasing the Max Wait Time in Configuration.");
+            } else if (response.error.includes("Extension context invalidated")) {
+              showExtensionUpdateNotification();
+              return;
+            } else if (response.error.includes("No elements selected")) {
+              setError("Please select elements to extract from the pages.");
+            } else {
+              setError(`Extraction failed: ${response.error}`);
+            }
           } else {
-            setError("Extraction failed with unknown error");
+            setError("Extraction failed with unknown error. Please try again.");
           }
         });
       } catch (err) {
-        console.error("Extraction error:", err);
-        setError("Failed to extract page details");
+        console.error("[ExtractDetailsTab] Extraction error:", err);
+        setError("Failed to extract page details. Please try again.");
         setIsExtracting(false);
         setExtractionStatus("idle");
+        if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+          window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+          console.log("[ExtractDetailsTab] Stopped page details selection mode after error");
+        }
       }
     };
     const handleStopExtraction = () => {
@@ -51009,6 +51071,10 @@ select{
       }, () => {
         setIsExtracting(false);
         setExtractionStatus("stopped");
+        if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+          window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+          console.log("[ExtractDetailsTab] Stopped page details selection mode after user cancellation");
+        }
       });
     };
     const exportToCSV = (data) => {
@@ -51044,20 +51110,24 @@ select{
       a.click();
       URL.revokeObjectURL(url);
     };
-    const copyToClipboard = async (data) => {
+    const copyToClipboard = async (data, event2) => {
       try {
         const text = JSON.stringify(data, null, 2);
         await navigator.clipboard.writeText(text);
-        const button = event.currentTarget;
-        const originalContent = button.innerHTML;
-        button.innerHTML = "<span>\u2713</span> Copied!";
-        button.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
-        button.style.borderColor = "rgba(16, 185, 129, 0.2)";
-        setTimeout(() => {
-          button.innerHTML = originalContent;
-          button.style.backgroundColor = "transparent";
-          button.style.borderColor = "rgba(255, 255, 255, 0.1)";
-        }, 2e3);
+        if (event2 && event2.currentTarget) {
+          const button = event2.currentTarget;
+          const originalContent = button.innerHTML;
+          button.innerHTML = "<span>\u2713</span> Copied!";
+          button.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
+          button.style.borderColor = "rgba(16, 185, 129, 0.2)";
+          setTimeout(() => {
+            button.innerHTML = originalContent;
+            button.style.backgroundColor = "transparent";
+            button.style.borderColor = "rgba(255, 255, 255, 0.1)";
+          }, 2e3);
+        } else {
+          console.log("Data copied to clipboard successfully");
+        }
       } catch (err) {
         console.error("Failed to copy to clipboard:", err);
       }
@@ -51490,12 +51560,24 @@ select{
     ), error && /* @__PURE__ */ import_react9.default.createElement("div", { style: {
       marginBottom: "12px",
       padding: "8px",
-      backgroundColor: "rgba(239, 68, 68, 0.05)",
+      backgroundColor: error.includes("Extension was updated") ? "rgba(59, 130, 246, 0.05)" : "rgba(239, 68, 68, 0.05)",
       borderRadius: "3px",
-      border: "1px solid rgba(239, 68, 68, 0.15)",
-      color: "#f87171",
+      border: error.includes("Extension was updated") ? "1px solid rgba(59, 130, 246, 0.15)" : "1px solid rgba(239, 68, 68, 0.15)",
+      color: error.includes("Extension was updated") ? "#60a5fa" : "#f87171",
       fontSize: "10px"
-    } }, error), isExtracting && /* @__PURE__ */ import_react9.default.createElement(
+    } }, error.includes("Extension was updated") && /* @__PURE__ */ import_react9.default.createElement("div", { style: {
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+      marginBottom: "4px"
+    } }, /* @__PURE__ */ import_react9.default.createElement("span", { style: { fontSize: "12px" } }, "\u{1F504}"), /* @__PURE__ */ import_react9.default.createElement("strong", null, "Extension Updated")), error, error.includes("Extension was updated") && /* @__PURE__ */ import_react9.default.createElement("div", { style: {
+      marginTop: "6px",
+      padding: "4px 8px",
+      backgroundColor: "rgba(59, 130, 246, 0.1)",
+      borderRadius: "2px",
+      fontSize: "9px",
+      textAlign: "center"
+    } }, "Press F5 or Ctrl+R to refresh this page")), isExtracting && /* @__PURE__ */ import_react9.default.createElement(
       ExtractionProgress,
       {
         currentUrl: processedUrls,
@@ -51553,10 +51635,7 @@ select{
     ), /* @__PURE__ */ import_react9.default.createElement(
       "button",
       {
-        onClick: (e) => {
-          e.currentTarget = e.currentTarget;
-          copyToClipboard(extractionResults);
-        },
+        onClick: (e) => copyToClipboard(extractionResults, e),
         style: {
           padding: "4px 8px",
           backgroundColor: "transparent",
@@ -51681,7 +51760,9 @@ select{
                       }
                     } catch (e) {
                     }
-                  } else {
+                  } else if (Array.from(n3.childNodes).every(function(childNode) {
+                    return childNode.nodeType === Node.TEXT_NODE || _ExtractionEngine.regexAcceptableNodes.test(childNode.nodeName);
+                  })) {
                     try {
                       let s2;
                       l2 = n3 == null || (s2 = n3.innerText) === null || s2 === void 0 ? void 0 : s2.trim();
@@ -51867,21 +51948,29 @@ select{
       });
     }
     /**
-     * Find simple extractable elements - EXACT COPY
+     * Find simple extractable elements - EXACT WebPeeler implementation with debugging
      */
     static findSimpleExtractableElements(e) {
       let n;
       const t = e.element;
       const r = [];
+      console.log("[ExtractionEngine] findSimpleExtractableElements called with element:", t);
+      console.log("[ExtractionEngine] Element tagName:", t.tagName);
+      console.log("[ExtractionEngine] Element innerHTML preview:", t.innerHTML?.substring(0, 200));
       const a = (n = t.innerText) === null || n === void 0 ? void 0 : n.trim();
+      console.log("[ExtractionEngine] innerText extracted:", a ? `"${a.substring(0, 100)}..."` : "null/empty");
       if (a) {
         r.push({
           type: U.TEXT,
           data: a,
           element: t
         });
+        console.log("[ExtractionEngine] Added TEXT extractable");
+      } else {
+        console.log("[ExtractionEngine] No text content found");
       }
       const o = t.querySelectorAll("a");
+      console.log("[ExtractionEngine] Found", o.length, "link(s) in element");
       if (t.tagName === "A" && t.href && !t.href.startsWith("javascript:")) {
         const i = t.href;
         if (i) {
@@ -51890,6 +51979,7 @@ select{
             data: i,
             element: t
           });
+          console.log("[ExtractionEngine] Added LINK_URL extractable (self):", i);
         }
       } else if (o.length === 1 && !o[0].href.startsWith("javascript:")) {
         const l = o[0].href;
@@ -51899,6 +51989,7 @@ select{
             data: l,
             element: o[0]
           });
+          console.log("[ExtractionEngine] Added LINK_URL extractable (child):", l);
         }
       }
       if (t.tagName === "IMG" && t.src) {
@@ -51909,8 +52000,11 @@ select{
             data: c2,
             element: t
           });
+          console.log("[ExtractionEngine] Added IMAGE_URL extractable:", c2);
         }
       }
+      console.log("[ExtractionEngine] Final extractables count:", r.length);
+      console.log("[ExtractionEngine] Final extractables:", r);
       return r;
     }
     /**
@@ -54769,586 +54863,157 @@ select{
   };
   var selection_engine_default = SelectionEngine;
 
-  // src/engine/task-runner.js
-  var TaskRunner = class {
-    constructor() {
-      this.currentTask = null;
-      this.isRunning = false;
-      this.callbacks = {};
-      this.extractSettings = {};
-      this.contentWindow = null;
-    }
-    /**
-     * Run extraction task
-     * @param {Object} config - Configuration object
-     * @param {Window} config.contentWindow - Target window/iframe to extract from
-     * @param {Object} config.task - Task definition with steps and actions
-     * @param {Object} options - Execution options
-     * @param {boolean} options.shouldLoadUrl - Whether to load URL before extraction
-     * @param {Object} extractSettings - Extraction settings
-     * @param {Object} callbacks - Event callbacks
-     * @param {Function} callbacks.onTaskStarted - Called when task starts
-     * @param {Function} callbacks.onStepStarted - Called when step starts
-     * @param {Function} callbacks.onStepCompleted - Called when step completes
-     * @param {Function} callbacks.onTaskCompleted - Called when task completes
-     * @param {Function} callbacks.onError - Called on error
-     */
-    run(config, options = {}, extractSettings = {}, callbacks = {}) {
-      if (!config.contentWindow) {
-        throw new Error("contentWindow is required");
-      }
-      if (!config.task) {
-        throw new Error("task is required");
-      }
-      this.contentWindow = config.contentWindow;
-      this.currentTask = config.task;
-      this.extractSettings = extractSettings;
-      this.callbacks = callbacks;
-      const shouldLoadUrl = options.shouldLoadUrl !== void 0 ? options.shouldLoadUrl : true;
-      this.isRunning = true;
-      if (this.callbacks.onTaskStarted) {
-        this.callbacks.onTaskStarted(this.currentTask);
-      }
-      this.executeTask(shouldLoadUrl);
-    }
-    /**
-     * Execute the task steps
-     * @private
-     */
-    async executeTask(shouldLoadUrl) {
-      try {
-        if (shouldLoadUrl && this.currentTask.url) {
-          await this.waitForPageLoad();
-        }
-        const steps = this.currentTask.steps || [];
-        for (let i = 0; i < steps.length; i++) {
-          const step = steps[i];
-          if (this.callbacks.onStepStarted) {
-            this.callbacks.onStepStarted({
-              stepId: step.id,
-              stepIndex: i,
-              totalSteps: steps.length
-            });
-          }
-          const result = await this.executeStep(step);
-          if (this.callbacks.onStepCompleted) {
-            this.callbacks.onStepCompleted({
-              stepId: step.id,
-              stepIndex: i,
-              totalSteps: steps.length,
-              result
-            });
-          }
-        }
-        this.isRunning = false;
-        if (this.callbacks.onTaskCompleted) {
-          this.callbacks.onTaskCompleted({
-            task: this.currentTask,
-            pagination: null
-            // TODO: Handle pagination if needed
-          });
-        }
-      } catch (error) {
-        this.isRunning = false;
-        if (this.callbacks.onError) {
-          this.callbacks.onError(error);
-        } else {
-          console.error("Task execution error:", error);
-        }
-      }
-    }
-    /**
-     * Execute a single step
-     * @private
-     */
-    async executeStep(step) {
-      const { action, selector, elements } = step;
-      switch (action) {
-        case "extract":
-          return this.performExtraction(selector, elements);
-        case "click":
-          return this.performClick(selector);
-        case "scroll":
-          return this.performScroll();
-        case "wait":
-          return this.performWait(step.duration || 1e3);
-        default:
-          throw new Error(`Unknown action type: ${action}`);
-      }
-    }
-    /**
-     * Perform extraction on elements
-     * @private
-     */
-    performExtraction(selector, elements) {
-      try {
-        let targetElements = [];
-        if (selector) {
-          targetElements = Array.from(this.contentWindow.document.querySelectorAll(selector));
-        } else if (elements && elements.length > 0) {
-          targetElements = elements;
-        } else {
-          targetElements = [this.contentWindow.document.body];
-        }
-        const result = ExtractionEngine.findExtractableElements({
-          elements: targetElements,
-          settings: this.extractSettings
-        });
-        return {
-          extractableElements: result.extractableElements,
-          children: result.children
-        };
-      } catch (error) {
-        console.error("Extraction error:", error);
-        throw error;
-      }
-    }
-    /**
-     * Perform click action
-     * @private
-     */
-    performClick(selector) {
-      try {
-        const element = this.contentWindow.document.querySelector(selector);
-        if (!element) {
-          throw new Error(`Element not found: ${selector}`);
-        }
-        const clickEvent = new this.contentWindow.MouseEvent("click", {
-          bubbles: true,
-          cancelable: true,
-          view: this.contentWindow
-        });
-        element.dispatchEvent(clickEvent);
-        return { clicked: true, selector };
-      } catch (error) {
-        console.error("Click error:", error);
-        throw error;
-      }
-    }
-    /**
-     * Perform scroll action
-     * @private
-     */
-    performScroll() {
-      try {
-        this.contentWindow.scrollTo({
-          top: this.contentWindow.document.body.scrollHeight,
-          behavior: "smooth"
-        });
-        return { scrolled: true };
-      } catch (error) {
-        console.error("Scroll error:", error);
-        throw error;
-      }
-    }
-    /**
-     * Wait for specified duration
-     * @private
-     */
-    performWait(duration) {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({ waited: duration });
-        }, duration);
-      });
-    }
-    /**
-     * Wait for page to load
-     * @private
-     */
-    waitForPageLoad() {
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("Page load timeout"));
-        }, 3e4);
-        if (this.contentWindow.document.readyState === "complete") {
-          clearTimeout(timeout);
-          resolve();
-          return;
-        }
-        const handleLoad = () => {
-          clearTimeout(timeout);
-          this.contentWindow.removeEventListener("load", handleLoad);
-          resolve();
-        };
-        this.contentWindow.addEventListener("load", handleLoad);
-      });
-    }
-    /**
-     * Cancel current task execution
-     */
-    cancel() {
-      this.isRunning = false;
-      this.currentTask = null;
-      if (this.callbacks.onTaskCompleted) {
-        this.callbacks.onTaskCompleted({
-          task: this.currentTask,
-          cancelled: true
-        });
-      }
-    }
-    /**
-     * Get current execution status
-     */
-    getStatus() {
-      return {
-        isRunning: this.isRunning,
-        currentTask: this.currentTask
-      };
-    }
-  };
-  var taskRunner = new TaskRunner();
-  var task_runner_default = taskRunner;
-
-  // src/engine/pagination-detector.js
-  var PaginationDetector = class {
-    constructor() {
-      this.paginationSelectors = [
-        // Next buttons
-        'a[rel="next"]',
-        'a[aria-label*="next" i]',
-        'a[aria-label*="Next" i]',
-        'button[aria-label*="next" i]',
-        'button[aria-label*="Next" i]',
-        'a:contains("Next")',
-        'button:contains("Next")',
-        "a.next",
-        "button.next",
-        ".pagination-next",
-        ".next-page",
-        'a[class*="next" i]',
-        'button[class*="next" i]',
-        // Arrow buttons
-        'a[aria-label*="\u2192"]',
-        'button[aria-label*="\u2192"]',
-        'a:contains("\u2192")',
-        'button:contains("\u2192")',
-        'a:contains(">")',
-        'button:contains(">")',
-        'a:contains("\xBB")',
-        'button:contains("\xBB")',
-        // Load more buttons
-        'button:contains("Load more")',
-        'button:contains("load more")',
-        'a:contains("Load more")',
-        'a:contains("load more")',
-        'button[class*="load-more" i]',
-        'a[class*="load-more" i]',
-        ".load-more",
-        "#load-more",
-        // Show more
-        'button:contains("Show more")',
-        'a:contains("Show more")',
-        'button[class*="show-more" i]',
-        // Common pagination containers
-        ".pagination a:last-child",
-        ".pagination button:last-child",
-        'nav[role="navigation"] a:contains("Next")',
-        'nav[role="navigation"] button:contains("Next")',
-        // Numbered pagination
-        ".pagination li:last-child a",
-        ".pagination li:last-child button",
-        "ul.pagination li:last-child a",
-        // WordPress
-        ".nav-previous a",
-        ".nav-links .next",
-        // Common frameworks
-        '.page-link:contains("Next")',
-        ".page-item:last-child .page-link",
-        // Custom data attributes
-        '[data-page="next"]',
-        '[data-action="next-page"]',
-        '[data-pagination="next"]'
-      ];
-      this.infiniteScrollSelectors = [
-        "[data-infinite-scroll]",
-        "[data-infinite]",
-        ".infinite-scroll-container",
-        ".infinite-scroll",
-        '[class*="infinite-scroll"]',
-        ".endless-scroll",
-        ".auto-load"
-      ];
-    }
-    /**
-     * Find pagination button with smart search
-     */
-    async findPaginationWithSmartSearch({
-      window: window2,
-      selector,
-      expectedText,
-      expectedByteSize,
-      timeoutMs = 5e3,
-      shouldScrollToBottom = true,
-      requireTextMatch = true,
-      requireByteSizeMatch = true
-    }) {
-      const startTime = Date.now();
-      let element = await this.findPaginationButton({
-        rootView: window2.document.body,
-        selector,
-        expectedText,
-        expectedByteSize,
-        timeoutMs: Math.min(timeoutMs / 2, 2e3),
-        requireTextMatch,
-        requireByteSizeMatch
-      });
-      if (element) {
-        return element;
-      }
-      if (shouldScrollToBottom) {
-        await this.scrollToBottom(window2);
-        element = await this.findPaginationButton({
-          rootView: window2.document.body,
-          selector,
-          expectedText,
-          expectedByteSize,
-          timeoutMs: timeoutMs - (Date.now() - startTime),
-          requireTextMatch,
-          requireByteSizeMatch
-        });
-      }
-      return element;
-    }
-    /**
-     * Find pagination button
-     */
-    async findPaginationButton({
-      rootView,
-      selector,
-      expectedText,
-      expectedByteSize,
-      timeoutMs = 5e3,
-      requireTextMatch = true,
-      requireByteSizeMatch = true
-    }) {
-      const startTime = Date.now();
-      return new Promise((resolve) => {
-        const checkForButton = () => {
-          if (selector) {
-            try {
-              const elements = rootView.querySelectorAll(selector);
-              for (const element of elements) {
-                if (this.isValidPaginationButton(element, expectedText, expectedByteSize, requireTextMatch, requireByteSizeMatch)) {
-                  resolve(element);
-                  return;
-                }
-              }
-            } catch (e) {
-            }
-          }
-          for (const sel of this.paginationSelectors) {
-            try {
-              if (sel.includes(":contains(")) {
-                const [baseSelector, text] = sel.split(":contains(");
-                const searchText = text.replace(")", "").replace(/"/g, "");
-                const elements = rootView.querySelectorAll(baseSelector || "*");
-                for (const element of elements) {
-                  if (element.textContent && element.textContent.includes(searchText)) {
-                    if (this.isValidPaginationButton(element, expectedText, expectedByteSize, requireTextMatch, requireByteSizeMatch)) {
-                      resolve(element);
-                      return;
-                    }
-                  }
-                }
-              } else {
-                const elements = rootView.querySelectorAll(sel);
-                for (const element of elements) {
-                  if (this.isValidPaginationButton(element, expectedText, expectedByteSize, requireTextMatch, requireByteSizeMatch)) {
-                    resolve(element);
-                    return;
-                  }
-                }
-              }
-            } catch (e) {
-            }
-          }
-          if (Date.now() - startTime >= timeoutMs) {
-            resolve(null);
-            return;
-          }
-          setTimeout(checkForButton, 100);
-        };
-        checkForButton();
-      });
-    }
-    /**
-     * Check if element is a valid pagination button
-     */
-    isValidPaginationButton(element, expectedText, expectedByteSize, requireTextMatch, requireByteSizeMatch) {
-      if (!this.isElementVisible(element)) {
-        return false;
-      }
-      if (element.disabled || element.getAttribute("disabled") !== null || element.classList.contains("disabled") || element.getAttribute("aria-disabled") === "true") {
-        return false;
-      }
-      if (requireTextMatch && expectedText) {
-        const elementText = element.textContent?.trim() || "";
-        if (elementText !== expectedText) {
-          return false;
-        }
-      }
-      if (requireByteSizeMatch && expectedByteSize) {
-        const elementSize = new Blob([element.outerHTML]).size;
-        if (Math.abs(elementSize - expectedByteSize) > expectedByteSize * 0.1) {
-          return false;
-        }
-      }
-      return true;
-    }
-    /**
-     * Check if element is visible
-     */
-    isElementVisible(element) {
-      if (!element)
-        return false;
-      const style = window.getComputedStyle(element);
-      if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
-        return false;
-      }
-      const rect = element.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        return false;
-      }
-      return true;
-    }
-    /**
-     * Detect pagination type on current page
-     */
-    detectPaginationType() {
-      for (const selector of this.infiniteScrollSelectors) {
-        if (document.querySelector(selector)) {
-          return "PAGINATION_INFINITE_SCROLL";
-        }
-      }
-      const button = this.findPaginationButtonSync();
-      if (button) {
-        return "PAGINATION_BUTTON";
-      }
-      return "NONE";
-    }
-    /**
-     * Find pagination button synchronously
-     */
-    findPaginationButtonSync() {
-      for (const selector of this.paginationSelectors) {
-        try {
-          if (selector.includes(":contains(")) {
-            const [baseSelector, text] = selector.split(":contains(");
-            const searchText = text.replace(")", "").replace(/"/g, "");
-            const elements = document.querySelectorAll(baseSelector || "*");
-            for (const element of elements) {
-              if (element.textContent && element.textContent.includes(searchText)) {
-                if (this.isValidPaginationButton(element)) {
-                  return element;
-                }
-              }
-            }
-          } else {
-            const elements = document.querySelectorAll(selector);
-            for (const element of elements) {
-              if (this.isValidPaginationButton(element)) {
-                return element;
-              }
-            }
-          }
-        } catch (e) {
-        }
-      }
-      return null;
-    }
-    /**
-     * Scroll to bottom of page
-     */
-    async scrollToBottom(window2) {
-      return new Promise((resolve) => {
-        const scrollHeight = window2.document.documentElement.scrollHeight;
-        window2.scrollTo({
-          top: scrollHeight,
-          behavior: "smooth"
-        });
-        setTimeout(resolve, 1e3);
-      });
-    }
-  };
-  var paginationDetector = new PaginationDetector();
-
   // src/engine/automation-handler.js
-  var AutomationHandler = class {
-    constructor() {
-      this.isRunning = false;
-      this.settings = {
-        autoScroll: true,
-        dynamic: true,
-        pagination: null,
-        scrollDelay: 1e3,
-        maxScrollAttempts: 10,
-        elementWaitTime: 2e3,
-        smartPaginationDetection: true
-      };
-      this.callbacks = {};
-      this.extractedData = [];
-      this.processedElements = /* @__PURE__ */ new Set();
-      this.paginationElement = null;
+  var WebPeelerScrollOptions = {
+    maxSuccessLoads: 15e3,
+    // WebPeeler uses 15e3
+    scrollWaitMs: 1e3,
+    // WebPeeler uses 1e3 
+    maxLoadRetries: 2
+    // WebPeeler uses 2
+  };
+  var WebPeelerScrollUtils = class {
+    /**
+     * Smooth scroll to bottom - EXACT COPY from WebPeeler
+     */
+    static async scrollToBottom(window2, timeoutMs = 800) {
+      return new Promise((resolve, reject) => {
+        try {
+          let timeout, interval;
+          const document2 = window2.document;
+          window2.scrollTo({
+            top: document2.body.scrollHeight,
+            behavior: "smooth"
+          });
+          const checkFunction = () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+              clearInterval(interval);
+              resolve();
+            }, timeoutMs);
+          };
+          interval = setInterval(checkFunction, 100);
+          checkFunction();
+        } catch (error) {
+          reject(error);
+        }
+      });
     }
     /**
-     * Start automation with current settings
+     * Get scrollable hierarchy - EXACT COPY from WebPeeler
      */
-    async start({
-      selectionEngine,
-      extractionEngine,
-      resultsTable,
-      settings = {},
-      callbacks = {}
-    }) {
-      if (this.isRunning) {
-        console.log("[AutomationHandler] Already running");
-        return;
+    static getScrollableHierarchy(element) {
+      const scrollableElements = [];
+      let current = element.element;
+      while (current && current.tagName !== "BODY") {
+        if (current.scrollHeight > current.clientHeight) {
+          scrollableElements.push(current);
+        }
+        current = current.parentElement;
       }
-      this.isRunning = true;
-      this.settings = { ...this.settings, ...settings };
-      this.callbacks = callbacks;
-      this.extractedData = [];
-      this.processedElements.clear();
-      try {
-        if (this.callbacks.onStart) {
-          this.callbacks.onStart();
+      return scrollableElements;
+    }
+    /**
+     * Check if element is scrollable - EXACT COPY from WebPeeler
+     */
+    static isElementScrollable(element) {
+      return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+    }
+    /**
+     * Auto load infinite scroll - EXACT COPY from WebPeeler approach
+     */
+    static async autoLoadInfiniteScroll(window2, options = {}) {
+      const {
+        maxScrolls = 50,
+        scrollDelay = 1e3,
+        timeout = 3e4
+      } = options;
+      let scrollCount = 0;
+      let lastHeight = window2.document.body.scrollHeight;
+      while (scrollCount < maxScrolls) {
+        await this.scrollToBottom(window2, scrollDelay);
+        await new Promise((resolve) => setTimeout(resolve, scrollDelay));
+        const newHeight = window2.document.body.scrollHeight;
+        if (newHeight === lastHeight) {
+          break;
         }
-        let collectionParent = selectionEngine.highlights?.selected;
-        if (!collectionParent && window.__extractorGPT?.lastSelectedCollectionParent) {
-          collectionParent = window.__extractorGPT.lastSelectedCollectionParent;
-          console.log("[AutomationHandler] Using stored collection parent");
+        lastHeight = newHeight;
+        scrollCount++;
+      }
+      return scrollCount;
+    }
+    /**
+     * Smooth scroll implementation - EXACT COPY from WebPeeler
+     */
+    static smoothScrollTo(element, targetPosition, duration) {
+      const startPosition = element.scrollTop;
+      const distance = targetPosition - startPosition;
+      let currentTime = 0;
+      const animateScroll = () => {
+        currentTime += 20;
+        const val = this.easeInOutQuad(currentTime, startPosition, distance, duration);
+        element.scrollTop = val;
+        if (currentTime < duration) {
+          setTimeout(animateScroll, 20);
         }
-        if (!collectionParent) {
-          throw new Error("No collection selected for extraction");
-        }
-        console.log("[AutomationHandler] Starting automation on:", collectionParent);
-        await this.extractFromCurrentView(collectionParent, extractionEngine, resultsTable);
-        if (this.settings.autoScroll) {
-          await this.handleAutoScroll(collectionParent, extractionEngine, resultsTable);
-        }
-        if (this.settings.pagination) {
-          await this.handlePagination(collectionParent, extractionEngine, resultsTable);
-        }
-        if (this.callbacks.onComplete) {
-          this.callbacks.onComplete({
-            totalExtracted: this.extractedData.length,
-            data: this.extractedData
+      };
+      animateScroll();
+    }
+    /**
+     * Easing function - EXACT COPY from WebPeeler
+     */
+    static easeInOutQuad(currentTime, start, change, duration) {
+      currentTime /= duration / 2;
+      if (currentTime < 1) {
+        return change / 2 * currentTime * currentTime + start;
+      }
+      currentTime--;
+      return -change / 2 * (currentTime * (currentTime - 2) - 1) + start;
+    }
+    /**
+     * Scroll to first child until condition - EXACT COPY from WebPeeler approach
+     */
+    static async scrollToFirstChildUntil(element, options = {}) {
+      const {
+        delayMs = 50,
+        timeoutMs = 1e4,
+        maxScrolls = 50
+      } = options;
+      let scrollCount = 0;
+      const startTime = Date.now();
+      while (scrollCount < maxScrolls && Date.now() - startTime < timeoutMs) {
+        if (element.children && element.children.length > 0) {
+          element.children[0].scrollIntoView({
+            behavior: "auto",
+            block: "start"
           });
         }
-        if (selectionEngine) {
-          console.log("[AutomationHandler] Disabling selection mode after automation");
-          selectionEngine.stopSelectionListMode();
-          selectionEngine.removeAllHighlights();
-          selectionEngine.detach();
-          selectionEngine.isActive = false;
-          window.dispatchEvent(new CustomEvent("extractorGPT:selectionDisabled"));
-        }
-      } catch (error) {
-        console.error("[AutomationHandler] Error:", error);
-        if (this.callbacks.onError) {
-          this.callbacks.onError(error);
-        }
+        scrollCount++;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      return scrollCount;
+    }
+  };
+  var WebPeelerIntegratedAutomation = class {
+    constructor() {
+      this.scrollOptions = WebPeelerScrollOptions;
+      this.isRunning = false;
+    }
+    /**
+     * Simple scroll automation - WebPeeler style
+     */
+    async performScrollAutomation(window2, options = {}) {
+      if (this.isRunning)
+        return;
+      this.isRunning = true;
+      try {
+        const scrollCount = await WebPeelerScrollUtils.autoLoadInfiniteScroll(window2, {
+          maxScrolls: options.maxScrolls || 50,
+          scrollDelay: this.scrollOptions.scrollWaitMs,
+          timeout: options.timeout || 3e4
+        });
+        console.log(`[WebPeelerAutomation] Completed ${scrollCount} scroll operations`);
+        return scrollCount;
       } finally {
         this.isRunning = false;
       }
@@ -55357,411 +55022,361 @@ select{
      * Stop automation
      */
     stop() {
-      console.log("[AutomationHandler] Stopping automation");
       this.isRunning = false;
     }
-    /**
-     * Extract data from current view
-     */
-    async extractFromCurrentView(collectionParent, extractionEngine, resultsTable) {
-      const freshParent = this.findFreshCollectionParent(collectionParent);
-      const elements = Array.from(freshParent.children);
-      console.log("[AutomationHandler] Extracting from", elements.length, "elements");
-      const newData = [];
-      let newElementsCount = 0;
-      for (const element of elements) {
-        const elementId = this.getElementId(element);
-        if (this.processedElements.has(elementId)) {
-          continue;
-        }
-        const extractResult = extractionEngine.findExtractableElements({
-          elements: [element],
-          // findExtractableElements expects array
-          depth: 100,
-          settings: {
-            extractImages: true,
-            extractAriaLabel: false
-          }
-        });
-        if (extractResult && extractResult.extractableElements && extractResult.extractableElements.length > 0) {
-          const extractables = extractResult.extractableElements[0];
-          if (extractables && extractables.length > 0) {
-            newData.push(extractables);
-            this.processedElements.add(elementId);
-            newElementsCount++;
-          }
-        }
+  };
+  var webPeelerAutomation = new WebPeelerIntegratedAutomation();
+  var automation_handler_default = webPeelerAutomation;
+
+  // src/engine/task-runner.js
+  function shuffle(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+  var WebPeelerTaskRunner = class {
+    constructor(config) {
+      const request = config.request;
+      if (!request)
+        throw new Error("Request object is required");
+      if (!request.urls || !Array.isArray(request.urls) || request.urls.length === 0) {
+        throw new Error("Request must contain a non-empty array of URLs");
       }
-      if (newData.length > 0) {
-        resultsTable.insertExtractablesFromList({
-          parent: freshParent,
-          extractables: newData,
-          append: true
-          // Append instead of replace
-        });
-        this.extractedData.push(...newData);
-        if (this.callbacks.onProgress) {
-          this.callbacks.onProgress({
-            extracted: newData.length,
-            total: this.extractedData.length,
-            newElements: newElementsCount
-          });
-        }
+      if (!request.elements || !Array.isArray(request.elements) || request.elements.length === 0) {
+        throw new Error("Request must contain a non-empty array of elements to extract");
       }
-      return newData.length;
+      if (!request.parallelTabs || request.parallelTabs < 1) {
+        throw new Error("Request must specify a positive number of parallel tabs");
+      }
+      this.urls = request.urls;
+      this.elements = request.elements;
+      this.parallelTabs = request.parallelTabs;
+      this.maxWaitTime = request.maxWaitTime || 30;
+      this.delayBeforeExtract = request.delayBeforeExtract || 0;
+      this.requestQueue = shuffle(this.urls);
+      this.activeCount = 0;
+      this.requestStatus = /* @__PURE__ */ new Map();
+      this.outcomes = /* @__PURE__ */ new Map();
+      this.cancelled = false;
+      this.activeTabs = /* @__PURE__ */ new Set();
     }
     /**
-     * Handle auto-scroll functionality
+     * Get progress bar - EXACT COPY from WebPeeler
      */
-    async handleAutoScroll(collectionParent, extractionEngine, resultsTable) {
-      console.log("[AutomationHandler] Starting auto-scroll");
-      let scrollAttempts = 0;
-      let lastExtractedCount = this.extractedData.length;
-      let noNewDataCount = 0;
-      let lastElementCount = collectionParent.children.length;
-      let scrollElement = this.findScrollableContainer(collectionParent);
-      console.log("[AutomationHandler] Using scroll container:", scrollElement);
-      const hasInfiniteScroll = this.detectInfiniteScroll();
-      console.log("[AutomationHandler] Infinite scroll detected:", hasInfiniteScroll);
-      while (this.isRunning && scrollAttempts < this.settings.maxScrollAttempts) {
-        const scrollHeight = scrollElement === window ? document.documentElement.scrollHeight : scrollElement.scrollHeight;
-        const currentScroll = scrollElement === window ? window.pageYOffset || document.documentElement.scrollTop : scrollElement.scrollTop;
-        if (scrollElement === window) {
-          window.scrollTo({
-            top: scrollHeight,
-            behavior: "smooth"
+    getProgressBar() {
+      const total = this.urls.length;
+      const completed = this.urls.length - this.requestQueue.length - this.activeCount;
+      const active = this.activeCount;
+      const completedBlocks = Math.floor(completed / total * 30);
+      const activeBlocks = Math.floor(active / total * 30);
+      const remainingBlocks = 30 - completedBlocks - activeBlocks;
+      const progressBar = "\u2588".repeat(completedBlocks) + "\u2592".repeat(activeBlocks) + "\u2591".repeat(remainingBlocks);
+      return `[PROGRESS]${progressBar} ${completed}/${total} (${active} active)`;
+    }
+    /**
+     * Initialize processing - EXACT COPY from WebPeeler
+     */
+    initialize() {
+      this.urls.forEach((url) => {
+        this.requestStatus.set(url, {
+          status: "idle",
+          outcome: null
+        });
+      });
+      this.processQueue();
+    }
+    /**
+     * Process queue - EXACT COPY from WebPeeler (simplified from generator)
+     */
+    async processQueue() {
+      while (this.requestQueue.length > 0 && this.activeCount < this.parallelTabs && !this.cancelled) {
+        const url = this.requestQueue.shift();
+        this.activeCount++;
+        this.requestStatus.set(url, {
+          status: "running",
+          outcome: null
+        });
+        this.processRequest(url).then((result) => {
+          this.requestStatus.set(url, {
+            status: "complete",
+            outcome: result
           });
-        } else {
-          scrollElement.scrollTo({
-            top: scrollElement.scrollHeight,
-            behavior: "smooth"
+          this.outcomes.set(url, result);
+        }).catch((error) => {
+          this.requestStatus.set(url, {
+            status: "failed",
+            outcome: error.message
           });
-        }
-        await this.delay(this.settings.scrollDelay);
-        if (hasInfiniteScroll || this.settings.dynamic) {
-          const freshParent = this.findFreshCollectionParent(collectionParent);
-          const hasNewElements = await this.waitForNewElements(freshParent, lastElementCount);
-          if (hasNewElements) {
-            lastElementCount = freshParent.children.length;
+          this.outcomes.set(url, {
+            status: "failed",
+            error: error.message
+          });
+        }).finally(() => {
+          this.activeCount--;
+          this.processQueue();
+        });
+      }
+    }
+    /**
+     * Process single request - EXACT COPY from WebPeeler
+     */
+    async processRequest(url) {
+      if (this.cancelled) {
+        throw new Error("Processing has been cancelled.");
+      }
+      return new Promise((resolve, reject) => {
+        let tabId = null;
+        let timeout = null;
+        let interval = null;
+        let completed = false;
+        let delayComplete = false;
+        const cleanup = () => {
+          if (interval) {
+            clearInterval(interval);
+            interval = null;
           }
-        } else {
-          await this.delay(this.settings.elementWaitTime);
-        }
-        const extracted = await this.extractFromCurrentView(
-          collectionParent,
-          extractionEngine,
-          resultsTable
-        );
-        if (this.extractedData.length === lastExtractedCount) {
-          noNewDataCount++;
-          if (noNewDataCount >= 3) {
-            console.log("[AutomationHandler] No new data after 3 attempts, stopping scroll");
-            break;
+          if (timeout) {
+            clearTimeout(timeout);
+            timeout = null;
           }
-        } else {
-          noNewDataCount = 0;
-          lastExtractedCount = this.extractedData.length;
-        }
-        scrollAttempts++;
-        const newScrollHeight = scrollElement === window ? document.documentElement.scrollHeight : scrollElement.scrollHeight;
-        const newScroll = scrollElement === window ? window.pageYOffset || document.documentElement.scrollTop : scrollElement.scrollTop;
-        if (hasInfiniteScroll) {
-          if (newScrollHeight === scrollHeight && Math.abs(newScroll - currentScroll) < 10) {
-            console.log("[AutomationHandler] Possible end of infinite scroll, waiting longer...");
-            await this.delay(this.settings.elementWaitTime * 2);
-            const finalHeight = scrollElement === window ? document.documentElement.scrollHeight : scrollElement.scrollHeight;
-            if (finalHeight === newScrollHeight) {
-              console.log("[AutomationHandler] Reached end of infinite scroll");
-              break;
+          if (tabId !== null) {
+            this.activeTabs.delete(tabId);
+            chrome.tabs.remove(tabId, () => {
+              if (chrome.runtime.lastError) {
+              }
+            });
+          }
+        };
+        const extractionFunction = (elements) => {
+          const results = [];
+          elements.forEach((element) => {
+            if (element.type === "emails") {
+              const htmlContent = document.body.innerHTML.replace(/\s+/g, " ").trim();
+              const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+              const matches = htmlContent.match(emailRegex) || [];
+              const seen = {};
+              const cleanEmails = matches.map((email) => email.toLowerCase()).filter((email) => {
+                return !!email && !(email.length > 254) && email.charAt(0) !== "." && email.charAt(email.length - 1) !== "." && (emailRegex.lastIndex = 0, emailRegex.test(email)) && !seen[email] && (seen[email] = true);
+              });
+              if (cleanEmails.length) {
+                results.push({
+                  id: element.elementId,
+                  name: element.name,
+                  type: element.type,
+                  data: cleanEmails,
+                  selectorType: "regex"
+                });
+              } else {
+                results.push({
+                  id: element.elementId,
+                  name: element.name,
+                  type: element.type,
+                  data: null,
+                  error: "No emails found"
+                });
+              }
+              return;
             }
-          }
-        } else {
-          if (newScrollHeight === scrollHeight && Math.abs(newScroll - currentScroll) < 10) {
-            console.log("[AutomationHandler] Reached bottom of page");
-            break;
-          }
-        }
-      }
-    }
-    /**
-     * Handle pagination
-     */
-    async handlePagination(collectionParent, extractionEngine, resultsTable) {
-      console.log("[AutomationHandler] Checking for pagination...");
-      if (!this.settings.pagination && this.settings.smartPaginationDetection) {
-        console.log("[AutomationHandler] Using smart pagination detection...");
-        const paginationType = paginationDetector.detectPaginationType();
-        console.log("[AutomationHandler] Detected pagination type:", paginationType);
-        if (paginationType === "PAGINATION_BUTTON") {
-          this.paginationElement = await paginationDetector.findPaginationButton({
-            rootView: document.body,
-            timeoutMs: 3e3
+            const selectors = element.selectors.sort((a, b) => b.order - a.order);
+            let extractedData = null;
+            for (let i = 0; i < selectors.length; i++) {
+              const selector = selectors[i];
+              let targetElement;
+              try {
+                targetElement = document.querySelectorAll(selector.selector)[selector.index];
+              } catch (e) {
+                continue;
+              }
+              if (targetElement) {
+                switch (element.type) {
+                  case "text":
+                    extractedData = targetElement.innerText?.trim();
+                    break;
+                  case "image-url":
+                    extractedData = targetElement.src;
+                    break;
+                  case "link-url":
+                    extractedData = targetElement.href;
+                    break;
+                }
+                if (extractedData) {
+                  results.push({
+                    id: element.elementId,
+                    name: element.name,
+                    type: element.type,
+                    data: extractedData,
+                    selectorType: selector.type
+                  });
+                  break;
+                }
+              }
+            }
+            if (!extractedData) {
+              results.push({
+                id: element.elementId,
+                name: element.name,
+                type: element.type,
+                selector: null,
+                data: null,
+                error: "No data found"
+              });
+            }
           });
-          if (this.paginationElement) {
-            console.log("[AutomationHandler] Found pagination button:", this.paginationElement);
+          return results;
+        };
+        const executeExtraction = () => {
+          if (completed) {
+            clearInterval(interval);
+            return;
           }
-        } else if (paginationType === "PAGINATION_INFINITE_SCROLL") {
-          console.log("[AutomationHandler] Infinite scroll detected, will be handled by auto-scroll");
-          return;
-        }
-      } else if (this.settings.pagination) {
-        console.log("[AutomationHandler] Looking for pagination element:", this.settings.pagination);
-        this.paginationElement = document.querySelector(this.settings.pagination);
-      }
-      if (!this.paginationElement) {
-        console.log("[AutomationHandler] No pagination element found");
-        return;
-      }
-      if (!paginationDetector.isValidPaginationButton(this.paginationElement)) {
-        console.log("[AutomationHandler] Pagination element is disabled or hidden");
-        return;
-      }
-      console.log("[AutomationHandler] Clicking pagination element");
-      this.paginationElement.click();
-      await this.delay(2e3);
-      if (this.settings.dynamic) {
-        await this.delay(this.settings.elementWaitTime);
-      }
-      if (this.isRunning) {
-        this.processedElements.clear();
-        const newCollectionParent = this.findSimilarElement(collectionParent);
-        if (newCollectionParent) {
-          await this.start({
-            selectionEngine: window.__extractorGPT.selectionEngine,
-            extractionEngine,
-            resultsTable,
-            settings: this.settings,
-            callbacks: this.callbacks
+          if (delayComplete) {
+            chrome.scripting.executeScript({
+              target: { tabId },
+              func: extractionFunction,
+              args: [this.elements]
+            }, (results) => {
+              if (!completed) {
+                if (chrome.runtime.lastError) {
+                  completed = true;
+                  clearInterval(interval);
+                  reject(new Error(chrome.runtime.lastError.message));
+                  cleanup();
+                  return;
+                }
+                if (results && results[0] && results[0].result && Object.keys(results[0].result).length && !Object.values(results[0].result).every((item) => item.error != null)) {
+                  const result = results[0].result;
+                  if (result) {
+                    completed = true;
+                    clearInterval(interval);
+                    resolve(result);
+                    cleanup();
+                  }
+                }
+              }
+            });
+          } else {
+            setTimeout(() => {
+              if (!completed) {
+                delayComplete = true;
+              }
+            }, this.delayBeforeExtract * 1e3);
+          }
+        };
+        chrome.tabs.create({
+          url,
+          active: false
+        }, (tab) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+          tabId = tab.id;
+          this.activeTabs.add(tabId);
+          chrome.tabs.onUpdated.addListener(function onTabUpdated(updatedTabId, changeInfo) {
+            if (updatedTabId === tabId && changeInfo.status === "complete") {
+              chrome.tabs.onUpdated.removeListener(onTabUpdated);
+              timeout = setTimeout(() => {
+                reject(new Error("Max wait time exceeded"));
+                cleanup();
+              }, this.maxWaitTime * 1e3);
+              interval = setInterval(executeExtraction, 1e3);
+            }
           });
-        } else {
-          console.log("[AutomationHandler] Could not find collection parent on new page");
-        }
-      }
+        });
+      });
     }
     /**
-     * Find similar element after page change
+     * Cancel processing - EXACT COPY from WebPeeler
      */
-    findSimilarElement(originalElement) {
-      if (originalElement.className) {
-        const elements2 = document.getElementsByClassName(originalElement.className);
-        if (elements2.length > 0) {
-          return elements2[0];
-        }
-      }
-      const tagName = originalElement.tagName;
-      const elements = document.getElementsByTagName(tagName);
-      let bestMatch = null;
-      let bestScore = 0;
-      for (const element of elements) {
-        let score = 0;
-        if (Math.abs(element.children.length - originalElement.children.length) < 5) {
-          score += 1;
-        }
-        const originalClasses = originalElement.className.split(" ");
-        const elementClasses = element.className.split(" ");
-        const commonClasses = originalClasses.filter((c2) => elementClasses.includes(c2));
-        score += commonClasses.length;
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = element;
-        }
-      }
-      return bestMatch;
-    }
-    /**
-     * Get unique ID for element
-     */
-    getElementId(element) {
-      if (element.id) {
-        return element.id;
-      }
-      const text = element.textContent?.trim().substring(0, 50) || "";
-      const className = element.className || "";
-      const index = Array.from(element.parentNode.children).indexOf(element);
-      return `${text}_${className}_${index}`;
-    }
-    /**
-     * Delay helper
-     */
-    delay(ms) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-    /**
-     * Find scrollable container
-     */
-    findScrollableContainer(element) {
-      let current = element;
-      while (current && current !== document.body) {
-        const style = window.getComputedStyle(current);
-        const isScrollable = (style.overflowY === "auto" || style.overflowY === "scroll") && current.scrollHeight > current.clientHeight;
-        if (isScrollable) {
-          console.log("[AutomationHandler] Found scrollable container:", current);
-          return current;
-        }
-        current = current.parentElement;
-      }
-      const commonContainers = [
-        // Common feed/list containers
-        '[role="feed"]',
-        '[role="list"]',
-        '[role="grid"]',
-        '[role="table"]',
-        // Common class patterns
-        ".scroll-container",
-        ".scrollable",
-        ".overflow-auto",
-        ".overflow-y-auto",
-        ".overflow-scroll",
-        ".overflow-y-scroll",
-        // Common ID patterns
-        "#results",
-        "#content",
-        "#main-content",
-        // Framework specific
-        ".infinite-scroll-component",
-        "[data-infinite-scroll]",
-        // Social media patterns
-        ".feed",
-        ".timeline",
-        ".stream",
-        // E-commerce patterns
-        ".product-list",
-        ".search-results",
-        ".items-grid"
-      ];
-      for (const selector of commonContainers) {
-        const container = document.querySelector(selector);
-        if (container && container.scrollHeight > container.clientHeight) {
-          const style = window.getComputedStyle(container);
-          if (style.overflowY === "auto" || style.overflowY === "scroll") {
-            console.log("[AutomationHandler] Found scrollable container by selector:", selector, container);
-            return container;
+    cancel() {
+      this.cancelled = true;
+      this.requestQueue = [];
+      this.activeTabs.forEach((tabId) => {
+        chrome.tabs.remove(tabId, () => {
+          if (chrome.runtime.lastError) {
           }
+        });
+      });
+      this.activeTabs.clear();
+      this.requestStatus.forEach((status, url) => {
+        if (status.status === "running" || status.status === "idle") {
+          this.requestStatus.set(url, {
+            status: "cancelled",
+            outcome: "Processing was cancelled."
+          });
         }
-      }
-      const bodyStyle = window.getComputedStyle(document.body);
-      if (bodyStyle.overflowY === "auto" || bodyStyle.overflowY === "scroll") {
-        if (document.body.scrollHeight > document.body.clientHeight) {
-          console.log("[AutomationHandler] Using body as scroll container");
-          return document.body;
-        }
-      }
-      console.log("[AutomationHandler] Using default window scrolling");
-      return window;
+      });
     }
     /**
-     * Find fresh collection parent (re-query to get dynamically loaded elements)
+     * Get status - EXACT COPY from WebPeeler
      */
-    findFreshCollectionParent(originalParent) {
-      if (originalParent && document.body.contains(originalParent)) {
-        return originalParent;
-      }
-      const tagName = originalParent.tagName;
-      const className = originalParent.className;
-      const role = originalParent.getAttribute("role");
-      if (className) {
-        const elements = document.getElementsByClassName(className);
-        for (const el of elements) {
-          if (el.tagName === tagName && el.children.length > 0) {
-            console.log("[AutomationHandler] Found fresh parent by class");
-            return el;
-          }
-        }
-      }
-      if (role) {
-        const element = document.querySelector(`${tagName}[role="${role}"]`);
-        if (element && element.children.length > 0) {
-          console.log("[AutomationHandler] Found fresh parent by role");
-          return element;
-        }
-      }
-      console.log("[AutomationHandler] Using original parent");
-      return originalParent;
+    getStatus() {
+      return Array.from(this.requestStatus.entries()).map(([url, status]) => {
+        return {
+          url,
+          ...status
+        };
+      });
     }
     /**
-     * Wait for new elements to appear after scroll
+     * Get outcomes - EXACT COPY from WebPeeler
      */
-    async waitForNewElements(collectionParent, previousCount) {
-      const maxWaitTime = 5e3;
-      const checkInterval = 100;
-      const startTime = Date.now();
-      while (Date.now() - startTime < maxWaitTime) {
-        const freshParent = this.findFreshCollectionParent(collectionParent);
-        const currentCount = freshParent.children.length;
-        if (currentCount > previousCount) {
-          console.log(`[AutomationHandler] New elements loaded: ${currentCount - previousCount}`);
-          return true;
-        }
-        await this.delay(checkInterval);
-      }
-      return false;
-    }
-    /**
-     * Detect if page uses infinite scroll
-     */
-    detectInfiniteScroll() {
-      const indicators = [
-        // Intersection Observer based
-        document.querySelector("[data-infinite-scroll]"),
-        document.querySelector(".infinite-scroll-component"),
-        document.querySelector('[class*="infinite"]'),
-        // Check for loading spinners at bottom
-        document.querySelector(".loading-spinner:last-child"),
-        document.querySelector(".loader:last-child"),
-        document.querySelector('[class*="loading"]:last-child'),
-        // Check meta tags or data attributes
-        document.querySelector('meta[name="infinite-scroll"]'),
-        document.querySelector('[data-pagination-type="infinite"]')
-      ];
-      return indicators.some((el) => el !== null);
+    getOutcomes() {
+      return this.outcomes;
     }
   };
-  var automationHandler = new AutomationHandler();
-  var automation_handler_default = automationHandler;
+  var task_runner_default = WebPeelerTaskRunner;
 
   // src/state-management/global-state-provider.js
   var import_react15 = __toESM(require_react());
 
   // src/background/storage-manager.js
   var StorageManager = class {
-    // Save data to chrome.storage.local
+    /**
+     * WebPeeler exact save method
+     */
     static save(key, value) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set({ [key]: value }, () => {
-            if (chrome.runtime.lastError) {
-              console.error("Storage save error:", chrome.runtime.lastError);
-            }
+          chrome.storage.local.set({
+            [key]: value
+          }, function() {
+            chrome.runtime.lastError;
           });
         }
       } catch (error) {
-        console.error("Error saving to storage:", error);
       }
     }
-    // Get all storage keys
+    /**
+     * WebPeeler exact getAllKeys method
+     */
     static async getAllKeys() {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(null, (items) => {
-              const keys2 = Object.keys(items);
+            chrome.storage.local.get(null, function(result) {
+              const keys2 = Object.keys(result);
               resolve(keys2);
             });
           } else {
             resolve([]);
           }
         } catch (error) {
-          console.error("Error getting all keys:", error);
           resolve([]);
         }
       });
     }
-    // Retrieve data by key
+    /**
+     * WebPeeler exact retrieve method
+     */
     static async retrieve(key) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get([key], (result) => {
+            chrome.storage.local.get([key], function(result) {
               if (result[key] !== void 0) {
                 resolve(result[key]);
               } else {
@@ -55772,120 +55387,163 @@ select{
             resolve(null);
           }
         } catch (error) {
-          console.error("Error retrieving from storage:", error);
           resolve(null);
         }
       });
     }
-    // Remove data by key
+    /**
+     * WebPeeler exact remove method
+     */
     static async remove(key) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.remove(key, () => {
+            chrome.storage.local.remove(key, function() {
               resolve();
             });
           } else {
             resolve();
           }
         } catch (error) {
-          console.error("Error removing from storage:", error);
           resolve();
         }
       });
     }
-    // Remove any keys matching pattern
+    /**
+     * WebPeeler exact removeAny method (pattern matching removal)
+     */
     static async removeAny(pattern) {
-      return new Promise(async (resolve) => {
+      const self = this;
+      return new Promise(function(resolve, reject) {
+        async function removeMatching() {
+          try {
+            if (chrome && chrome.storage && chrome.storage.local) {
+              const keys2 = await self.getAllKeys();
+              const matchingKeys = keys2.filter(function(key) {
+                return key.includes(pattern);
+              });
+              if (matchingKeys.length === 0) {
+                resolve();
+                return;
+              }
+              chrome.storage.local.remove(matchingKeys, function() {
+                resolve();
+              });
+            } else {
+              resolve();
+            }
+          } catch (error) {
+            resolve();
+          }
+        }
+        removeMatching();
+      });
+    }
+    /**
+     * Enhanced clearAll method (improvement over WebPeeler)
+     */
+    static async clearAll() {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            const allKeys = await this.getAllKeys();
-            const keysToRemove = allKeys.filter((key) => key.includes(pattern));
-            if (keysToRemove.length === 0) {
-              resolve();
-              return;
-            }
-            chrome.storage.local.remove(keysToRemove, () => {
-              resolve();
+            chrome.storage.local.clear(function() {
+              if (chrome.runtime.lastError) {
+                console.error("Error clearing storage:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve();
+              }
             });
           } else {
             resolve();
           }
         } catch (error) {
-          console.error("Error removing keys by pattern:", error);
-          resolve();
+          console.error("Storage clear error:", error);
+          reject(error);
         }
       });
     }
-    // Clear all storage data
-    static clearAll() {
-      try {
-        if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.clear(() => {
-            if (chrome.runtime.lastError) {
-              console.error("Storage clear error:", chrome.runtime.lastError);
-            }
-          });
-        }
-      } catch (error) {
-        console.error("Error clearing storage:", error);
-      }
-    }
-    // Batch operations
+    /**
+     * Enhanced getMultiple method (improvement over WebPeeler)
+     */
     static async getMultiple(keys2) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(keys2, (result) => {
-              resolve(result);
+            chrome.storage.local.get(keys2, function(result) {
+              if (chrome.runtime.lastError) {
+                console.error("Error getting multiple keys:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(result);
+              }
             });
           } else {
             resolve({});
           }
         } catch (error) {
-          console.error("Error getting multiple keys:", error);
-          resolve({});
+          console.error("Storage getMultiple error:", error);
+          reject(error);
         }
       });
     }
-    // Save multiple key-value pairs
-    static saveMultiple(items) {
-      try {
-        if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set(items, () => {
-            if (chrome.runtime.lastError) {
-              console.error("Storage save multiple error:", chrome.runtime.lastError);
-            }
-          });
+    /**
+     * Enhanced saveMultiple method (improvement over WebPeeler)
+     */
+    static async saveMultiple(items) {
+      return new Promise(function(resolve, reject) {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set(items, function() {
+              if (chrome.runtime.lastError) {
+                console.error("Error saving multiple items:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve();
+              }
+            });
+          } else {
+            resolve();
+          }
+        } catch (error) {
+          console.error("Storage saveMultiple error:", error);
+          reject(error);
         }
-      } catch (error) {
-        console.error("Error saving multiple items:", error);
-      }
+      });
     }
-    // Listen for storage changes
+    /**
+     * Enhanced storage listener (improvement over WebPeeler)
+     */
     static addListener(callback) {
       if (chrome && chrome.storage && chrome.storage.onChanged) {
-        chrome.storage.onChanged.addListener((changes, areaName) => {
+        chrome.storage.onChanged.addListener(function(changes, areaName) {
           if (areaName === "local") {
             callback(changes);
           }
         });
       }
     }
-    // Get storage size info
+    /**
+     * Enhanced storage size monitoring (improvement over WebPeeler)
+     */
     static async getBytesInUse(keys2 = null) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local && chrome.storage.local.getBytesInUse) {
-            chrome.storage.local.getBytesInUse(keys2, (bytesInUse) => {
-              resolve(bytesInUse);
+            chrome.storage.local.getBytesInUse(keys2, function(bytesInUse) {
+              if (chrome.runtime.lastError) {
+                console.error("Error getting bytes in use:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(bytesInUse);
+              }
             });
           } else {
             resolve(0);
           }
         } catch (error) {
-          console.error("Error getting storage size:", error);
-          resolve(0);
+          console.error("Storage getBytesInUse error:", error);
+          reject(error);
         }
       });
     }
@@ -56587,7 +56245,7 @@ select{
           window.__extractorGPT.cursorHighlighter = window.__extractorGPT.selectionEngine.cursorHighlighter;
           window.__extractorGPT.collectionHighlighter = window.__extractorGPT.selectionEngine.collectionHighlighter;
           window.__extractorGPT.resultsTable = new results_table_default();
-          window.__extractorGPT.taskRunner = task_runner_default;
+          window.__extractorGPT.TaskRunner = task_runner_default;
           window.__extractorGPT.automationHandler = automation_handler_default;
           window.__extractorGPT.isInitialized = true;
           window.__extractorGPT.isInitializing = false;
@@ -56666,37 +56324,8 @@ select{
           sendResponse({ status: "pong" });
           return false;
         }
-        if (message.action === "page-details-highlight") {
-          console.log("[CONTENT] Starting page details selection mode");
-          if (!window.__extractorGPT.isInitialized) {
-            initialize();
-          }
-          if (!window.__extractorGPT.isActive) {
-            window.__extractorGPT.isActive = true;
-            window.__extractorGPT.selectionEngine.attach();
-          }
-          window.__extractorGPT.selectionEngine.startPageDetailsSelectMode();
-          window.__extractorGPT.selectionEngine.onElementClick = (data) => {
-            console.log("[CONTENT] Page details element selected:", data);
-            chrome.runtime.sendMessage({
-              action: "page-details-selected",
-              element: {
-                selector: data.selector,
-                text: data.text,
-                type: data.type,
-                tagName: data.element?.tagName,
-                attributes: data.attributes
-              }
-            });
-          };
-          sendResponse({ success: true });
-          return false;
-        }
         if (message.action === "page-details-selected-complete") {
           console.log("[CONTENT] Page details selection completed");
-          if (window.__extractorGPT.selectionEngine) {
-            window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
-          }
           sendResponse({ success: true });
           return false;
         }

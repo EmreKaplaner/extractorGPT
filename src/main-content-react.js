@@ -444,8 +444,8 @@ if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
         window.__extractorGPT.cursorHighlighter = window.__extractorGPT.selectionEngine.cursorHighlighter;
         window.__extractorGPT.collectionHighlighter = window.__extractorGPT.selectionEngine.collectionHighlighter;
         window.__extractorGPT.resultsTable = new ResultsTable();
-        // TaskRunner is already an instance, not a class
-        window.__extractorGPT.taskRunner = TaskRunner;
+        // TaskRunner is now a class, create instance when needed
+        window.__extractorGPT.TaskRunner = TaskRunner;
         // Initialize automation handler
         window.__extractorGPT.automationHandler = automationHandler;
         
@@ -515,53 +515,12 @@ if (window.__extractorGPT && window.__extractorGPT.scriptLoaded) {
         return false;
       }
       
-      // Handle page details highlight mode
-      if (message.action === 'page-details-highlight') {
-        console.log('[CONTENT] Starting page details selection mode');
-        
-        // Initialize if needed
-        if (!window.__extractorGPT.isInitialized) {
-          initialize();
-        }
-        
-        // Activate selection engine if not active
-        if (!window.__extractorGPT.isActive) {
-          window.__extractorGPT.isActive = true;
-          window.__extractorGPT.selectionEngine.attach();
-        }
-        
-        // Start page details selection mode
-        window.__extractorGPT.selectionEngine.startPageDetailsSelectMode();
-        
-        // Set up element click handler for page details
-        window.__extractorGPT.selectionEngine.onElementClick = (data) => {
-          console.log('[CONTENT] Page details element selected:', data);
-          
-          // Send selected element back to background
-          chrome.runtime.sendMessage({
-            action: 'page-details-selected',
-            element: {
-              selector: data.selector,
-              text: data.text,
-              type: data.type,
-              tagName: data.element?.tagName,
-              attributes: data.attributes
-            }
-          });
-        };
-        
-        sendResponse({ success: true });
-        return false;
-      }
-      
       // Handle page details selection complete
       if (message.action === 'page-details-selected-complete') {
         console.log('[CONTENT] Page details selection completed');
         
-        // Stop selection mode
-        if (window.__extractorGPT.selectionEngine) {
-          window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
-        }
+        // DON'T stop selection mode here - keep highlights visible
+        // Selection mode will be stopped when extraction completes or user cancels
         
         sendResponse({ success: true });
         return false;

@@ -25,14 +25,24 @@ export function ExtractDetailsTab({ isPro }) {
   const fileInputRef = useRef(null);
   const urlInputRef = useRef(null);
   
-  // Listen for messages
+  // Listen for messages and monitor extension context
   useEffect(() => {
     const handleMessage = (request) => {
+      console.log('[ExtractDetailsTab] Received message:', request);
+      
       if (request.action === 'page-details-selected-complete' && request.data) {
+        console.log('[ExtractDetailsTab] Page details selected complete received');
+        console.log('[ExtractDetailsTab] Request data:', request.data);
+        console.log('[ExtractDetailsTab] Selectors:', request.data.selectors);
+        
         setSelectedElements(request.data.selectors || []);
         setIsSelectingElements(false);
         setError('');
+        
+        console.log('[ExtractDetailsTab] Set selected elements to:', request.data.selectors || []);
       } else if (request.action === 'status-update-extract' && request.data) {
+        console.log('[ExtractDetailsTab] Status update received:', request.data);
+        
         // Update extraction progress
         const statusData = request.data;
         const completed = statusData.filter(item => item.status === 'complete').length;
@@ -47,13 +57,30 @@ export function ExtractDetailsTab({ isPro }) {
         } else {
           setExtractionStatus('running');
         }
+      } else {
+        console.log('[ExtractDetailsTab] Unknown message action:', request.action);
       }
     };
     
+    // Set up message listener only if extension context is valid
+    if (isExtensionContextValid()) {
     chrome.runtime.onMessage.addListener(handleMessage);
+    }
+    
+    // Periodic check for extension context validity
+    const contextCheckInterval = setInterval(() => {
+      if (!isExtensionContextValid()) {
+        console.warn('[ExtractDetailsTab] Extension context invalidated during operation');
+        showExtensionUpdateNotification();
+        clearInterval(contextCheckInterval);
+      }
+    }, 2000); // Check every 2 seconds
     
     return () => {
+      if (chrome.runtime && chrome.runtime.onMessage) {
       chrome.runtime.onMessage.removeListener(handleMessage);
+      }
+      clearInterval(contextCheckInterval);
     };
   }, []);
   
@@ -61,6 +88,13 @@ export function ExtractDetailsTab({ isPro }) {
   useEffect(() => {
     console.log('[ExtractDetailsTab] showSelectElementsModal changed:', showSelectElementsModal);
   }, [showSelectElementsModal]);
+  
+  // Debug selectedElements state changes
+  useEffect(() => {
+    console.log('[ExtractDetailsTab] selectedElements changed:', selectedElements);
+    console.log('[ExtractDetailsTab] selectedElements length:', selectedElements.length);
+    console.log('[ExtractDetailsTab] selectedElements content:', selectedElements);
+  }, [selectedElements]);
   
   // Handle CSV upload
   const handleCSVUpload = (event) => {
@@ -110,50 +144,68 @@ export function ExtractDetailsTab({ isPro }) {
   // Helper function to check if extension context is valid
   const isExtensionContextValid = () => {
     try {
-      return chrome.runtime && chrome.runtime.id;
+      return chrome.runtime && chrome.runtime.id && !chrome.runtime.lastError;
     } catch (e) {
       return false;
     }
   };
   
-  // Helper function to send message with error handling
+  // Helper function to show extension update notification
+  const showExtensionUpdateNotification = () => {
+    setError('Extension was updated. Please refresh this page to continue using the extension.');
+    setIsSelectingElements(false);
+    setIsExtracting(false);
+    
+    // Stop page details selection mode when extension context is invalidated
+    try {
+      if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+        window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+        console.log('[ExtractDetailsTab] Stopped page details selection mode after extension context invalidation');
+      }
+    } catch (error) {
+      // Ignore errors during cleanup
+      console.warn('[ExtractDetailsTab] Error stopping selection mode during context invalidation:', error);
+    }
+  };
+  
+  // Send message safely with context validation
   const sendMessageSafely = (message, callback) => {
     if (!isExtensionContextValid()) {
-      console.error('Extension context invalidated');
-      setError('Extension was updated. Please refresh the page and try again.');
-      setIsSelectingElements(false);
-      setIsExtracting(false);
-      if (callback) callback({ success: false, error: 'Extension context invalidated' });
+      console.error('[ExtractDetailsTab] Extension context not valid');
+      showExtensionUpdateNotification();
       return;
     }
-    
+
     try {
       chrome.runtime.sendMessage(message, (response) => {
         if (chrome.runtime.lastError) {
-          console.error('Chrome runtime error:', chrome.runtime.lastError);
-          // Check if it's just an extension context error
-          if (chrome.runtime.lastError.message?.includes('Extension context invalidated')) {
-            setError('Extension was updated. Please refresh the page and try again.');
-          } else {
-            setError('Failed to communicate with extension. Please try again.');
+          console.error('[ExtractDetailsTab] Chrome runtime error:', chrome.runtime.lastError);
+          
+          // Handle context invalidation
+          if (chrome.runtime.lastError.message?.includes('Extension context invalidated') || 
+              chrome.runtime.lastError.message?.includes('message port closed')) {
+            console.error('[ExtractDetailsTab] Extension context invalidated during operation');
+            showExtensionUpdateNotification();
+            setIsExtracting(false);
+            setExtractionStatus('idle');
+            return;
           }
-          setIsSelectingElements(false);
-          setIsExtracting(false);
-          if (callback) callback({ success: false, error: chrome.runtime.lastError.message });
+          
+          // Handle other runtime errors
+          if (callback) {
+            callback({ success: false, error: chrome.runtime.lastError.message });
+          }
         } else {
-          if (callback) callback(response);
+          if (callback) {
+            callback(response);
+          }
         }
       });
     } catch (error) {
-      console.error('Error sending message:', error);
-      if (error.message?.includes('Extension context invalidated')) {
-        setError('Extension was updated. Please refresh the page and try again.');
-      } else {
-        setError('Extension error. Please try again.');
+      console.error('[ExtractDetailsTab] Error sending message:', error);
+      if (callback) {
+        callback({ success: false, error: error.message });
       }
-      setIsSelectingElements(false);
-      setIsExtracting(false);
-      if (callback) callback({ success: false, error: error.message });
     }
   };
   
@@ -170,6 +222,13 @@ export function ExtractDetailsTab({ isPro }) {
     }
     
     try {
+      // Check extension context before storage operations
+      if (!isExtensionContextValid()) {
+        console.error('[ExtractDetailsTab] Extension context not valid');
+        showExtensionUpdateNotification();
+        return;
+      }
+      
       // Store the full URL list for later extraction
       console.log('[ExtractDetailsTab] Storing URLs in chrome storage');
       if (chrome && chrome.storage && chrome.storage.local) {
@@ -185,6 +244,13 @@ export function ExtractDetailsTab({ isPro }) {
       console.log('[ExtractDetailsTab] Modal should now be visible');
     } catch (error) {
       console.error('[ExtractDetailsTab] Error in handleAddElements:', error);
+      
+      // Check if it's an extension context error
+      if (error.message && error.message.includes('Extension context invalidated')) {
+        showExtensionUpdateNotification();
+        return;
+      }
+      
       // Don't let storage errors prevent the modal from showing
       console.log('[ExtractDetailsTab] Error with storage, but showing modal anyway');
       setShowSelectElementsModal(true);
@@ -202,7 +268,7 @@ export function ExtractDetailsTab({ isPro }) {
     sendMessageSafely({
       action: 'page-details-highlight',
       data: {
-        urls: [selectedUrl] // Send only the selected URL
+        urls: [selectedUrl] // Send as array to match background script expectation
       }
     }, (response) => {
       if (!response?.success) {
@@ -224,22 +290,22 @@ export function ExtractDetailsTab({ isPro }) {
       setError('Please select elements to extract');
       return;
     }
-    
+
     setIsExtracting(true);
     setExtractionStatus('running');
     setProcessedUrls(0);
     setError('');
     setExtractionResults([]);
-    
+
     try {
       sendMessageSafely({
         action: 'page-details-extract',
-        urls: urls,
-        elements: selectedElements,
-        config: {
-          parallelTabs,
-          maxWaitTime,
-          delayBeforeExtract
+        data: {
+          urls: urls,
+          elements: selectedElements,
+          parallelTabs: parallelTabs,
+          maxWaitTime: maxWaitTime,
+          delayBeforeExtract: delayBeforeExtract
         }
       }, (response) => {
         console.log('[ExtractDetailsTab] Extraction response:', response);
@@ -247,6 +313,12 @@ export function ExtractDetailsTab({ isPro }) {
         // Reset extraction state first
         setIsExtracting(false);
         setExtractionStatus('idle');
+        
+        // Stop page details selection mode now that extraction is complete
+        if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+          window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+          console.log('[ExtractDetailsTab] Stopped page details selection mode after extraction');
+        }
         
         if (response && response.success) {
           console.log('[ExtractDetailsTab] Setting extraction results:', response.results);
@@ -260,18 +332,42 @@ export function ExtractDetailsTab({ isPro }) {
           
           if (results.length === 0) {
             setError('No data was extracted. Please check that the selected elements contain data on the target pages.');
+          } else {
+            // Check if all results have errors
+            const allHaveErrors = results.every(result => result.error);
+            if (allHaveErrors) {
+              setError('All extractions failed. Please verify that the selected elements exist on the target pages.');
+            }
           }
         } else if (response && response.error) {
-          setError(response.error);
+          console.error('[ExtractDetailsTab] Extraction error:', response.error);
+          
+          // Handle specific error types
+          if (response.error.includes('Max wait time exceeded')) {
+            setError('Extraction timed out. The pages may be loading slowly or the selected elements may not exist. Try increasing the Max Wait Time in Configuration.');
+          } else if (response.error.includes('Extension context invalidated')) {
+            showExtensionUpdateNotification();
+            return;
+          } else if (response.error.includes('No elements selected')) {
+            setError('Please select elements to extract from the pages.');
+          } else {
+            setError(`Extraction failed: ${response.error}`);
+          }
         } else {
-          setError('Extraction failed with unknown error');
+          setError('Extraction failed with unknown error. Please try again.');
         }
       });
     } catch (err) {
-      console.error('Extraction error:', err);
-      setError('Failed to extract page details');
+      console.error('[ExtractDetailsTab] Extraction error:', err);
+      setError('Failed to extract page details. Please try again.');
       setIsExtracting(false);
       setExtractionStatus('idle');
+      
+      // Stop page details selection mode on error
+      if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+        window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+        console.log('[ExtractDetailsTab] Stopped page details selection mode after error');
+      }
     }
   };
   
@@ -282,6 +378,12 @@ export function ExtractDetailsTab({ isPro }) {
     }, () => {
       setIsExtracting(false);
       setExtractionStatus('stopped');
+      
+      // Stop page details selection mode when user cancels extraction
+      if (window.__extractorGPT && window.__extractorGPT.selectionEngine) {
+        window.__extractorGPT.selectionEngine.stopPageDetailsSelectMode();
+        console.log('[ExtractDetailsTab] Stopped page details selection mode after user cancellation');
+      }
     });
   };
   
@@ -327,12 +429,13 @@ export function ExtractDetailsTab({ isPro }) {
   };
   
   // Copy to clipboard
-  const copyToClipboard = async (data) => {
+  const copyToClipboard = async (data, event) => {
     try {
       const text = JSON.stringify(data, null, 2);
       await navigator.clipboard.writeText(text);
       
-      // Show success feedback
+      // Show success feedback if button is available
+      if (event && event.currentTarget) {
       const button = event.currentTarget;
       const originalContent = button.innerHTML;
       button.innerHTML = '<span>✓</span> Copied!';
@@ -344,8 +447,13 @@ export function ExtractDetailsTab({ isPro }) {
         button.style.backgroundColor = 'transparent';
         button.style.borderColor = 'rgba(255, 255, 255, 0.1)';
       }, 2000);
+      } else {
+        // Fallback: just log success if no button available
+        console.log('Data copied to clipboard successfully');
+      }
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
+      // You could add a toast notification here instead
     }
   };
   
@@ -923,13 +1031,40 @@ export function ExtractDetailsTab({ isPro }) {
           <div style={{
             marginBottom: '12px',
             padding: '8px',
-            backgroundColor: 'rgba(239, 68, 68, 0.05)',
+            backgroundColor: error.includes('Extension was updated') 
+              ? 'rgba(59, 130, 246, 0.05)' 
+              : 'rgba(239, 68, 68, 0.05)',
             borderRadius: '3px',
-            border: '1px solid rgba(239, 68, 68, 0.15)',
-            color: '#f87171',
+            border: error.includes('Extension was updated') 
+              ? '1px solid rgba(59, 130, 246, 0.15)' 
+              : '1px solid rgba(239, 68, 68, 0.15)',
+            color: error.includes('Extension was updated') ? '#60a5fa' : '#f87171',
             fontSize: '10px'
           }}>
+            {error.includes('Extension was updated') && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                marginBottom: '4px'
+              }}>
+                <span style={{ fontSize: '12px' }}>🔄</span>
+                <strong>Extension Updated</strong>
+              </div>
+            )}
             {error}
+            {error.includes('Extension was updated') && (
+              <div style={{ 
+                marginTop: '6px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderRadius: '2px',
+                fontSize: '9px',
+                textAlign: 'center'
+              }}>
+                Press F5 or Ctrl+R to refresh this page
+              </div>
+            )}
       </div>
         )}
         
@@ -997,10 +1132,7 @@ export function ExtractDetailsTab({ isPro }) {
                   { } JSON
                 </button>
                 <button
-                  onClick={(e) => {
-                    e.currentTarget = e.currentTarget;
-                    copyToClipboard(extractionResults);
-                  }}
+                  onClick={(e) => copyToClipboard(extractionResults, e)}
                   style={{
                     padding: '4px 8px',
                     backgroundColor: 'transparent',

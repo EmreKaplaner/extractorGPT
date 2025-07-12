@@ -28293,7 +28293,9 @@ select{
                       }
                     } catch (e) {
                     }
-                  } else {
+                  } else if (Array.from(n3.childNodes).every(function(childNode) {
+                    return childNode.nodeType === Node.TEXT_NODE || _ExtractionEngine.regexAcceptableNodes.test(childNode.nodeName);
+                  })) {
                     try {
                       let s2;
                       l2 = n3 == null || (s2 = n3.innerText) === null || s2 === void 0 ? void 0 : s2.trim();
@@ -28479,21 +28481,29 @@ select{
       });
     }
     /**
-     * Find simple extractable elements - EXACT COPY
+     * Find simple extractable elements - EXACT WebPeeler implementation with debugging
      */
     static findSimpleExtractableElements(e) {
       let n;
       const t = e.element;
       const r = [];
+      console.log("[ExtractionEngine] findSimpleExtractableElements called with element:", t);
+      console.log("[ExtractionEngine] Element tagName:", t.tagName);
+      console.log("[ExtractionEngine] Element innerHTML preview:", t.innerHTML?.substring(0, 200));
       const a = (n = t.innerText) === null || n === void 0 ? void 0 : n.trim();
+      console.log("[ExtractionEngine] innerText extracted:", a ? `"${a.substring(0, 100)}..."` : "null/empty");
       if (a) {
         r.push({
           type: U.TEXT,
           data: a,
           element: t
         });
+        console.log("[ExtractionEngine] Added TEXT extractable");
+      } else {
+        console.log("[ExtractionEngine] No text content found");
       }
       const o = t.querySelectorAll("a");
+      console.log("[ExtractionEngine] Found", o.length, "link(s) in element");
       if (t.tagName === "A" && t.href && !t.href.startsWith("javascript:")) {
         const i = t.href;
         if (i) {
@@ -28502,6 +28512,7 @@ select{
             data: i,
             element: t
           });
+          console.log("[ExtractionEngine] Added LINK_URL extractable (self):", i);
         }
       } else if (o.length === 1 && !o[0].href.startsWith("javascript:")) {
         const l = o[0].href;
@@ -28511,6 +28522,7 @@ select{
             data: l,
             element: o[0]
           });
+          console.log("[ExtractionEngine] Added LINK_URL extractable (child):", l);
         }
       }
       if (t.tagName === "IMG" && t.src) {
@@ -28521,8 +28533,11 @@ select{
             data: c2,
             element: t
           });
+          console.log("[ExtractionEngine] Added IMAGE_URL extractable:", c2);
         }
       }
+      console.log("[ExtractionEngine] Final extractables count:", r.length);
+      console.log("[ExtractionEngine] Final extractables:", r);
       return r;
     }
     /**
@@ -28682,6 +28697,51 @@ select{
   var message_utils_default = MessageUtils;
 
   // src/selector-content.js
+  if (!String.prototype.dot) {
+    String.prototype.dot = function() {
+      return "." + this;
+    };
+  }
+  if (!document.querySelector("style[data-extractor-gpt-selector]")) {
+    const extractionStyle = document.createElement("style");
+    extractionStyle.setAttribute("data-extractor-gpt-selector", "true");
+    extractionStyle.textContent = `
+    /* Cursor Overlay - Blue highlighting rectangle */
+    .panda-extract-cursor-move-overlay {
+      position: absolute;
+      pointer-events: none;
+      outline: 2px solid rgba(0, 0, 255, 0.727);
+      border-radius: 4px;
+      background-color: rgba(12, 136, 244, 0.4);
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.4);
+      z-index: 2147483647;
+      transition: all 0.4s ease-in-out;
+    }
+    
+    /* Collection and item highlighting */
+    .panda-highlight-collection-element {
+      outline: 2px solid #2196F3 !important;
+      background: rgba(33, 150, 243, 0.1) !important;
+      cursor: pointer !important;
+    }
+    
+    .panda-extract-highlighted-item {
+      outline: 2px solid #FF9800 !important;
+      background: rgba(255, 152, 0, 0.1) !important;
+      cursor: pointer !important;
+    }
+    
+    .panda-highlight-child-element-active {
+      background-color: rgba(255, 255, 0, 0.5) !important;
+      border: 2px dotted rgba(255, 0, 0, 0.8) !important;
+      box-shadow: 0 0 10px rgba(255, 255, 0, 0.5) !important;
+    }
+    
+    /* Z-index layers */
+    .panda-z-2 { z-index: 2147483646; }
+  `;
+    document.head.appendChild(extractionStyle);
+  }
   var CircleIcon = ({ className }) => /* @__PURE__ */ import_react.default.createElement("svg", { className, viewBox: "0 0 24 24", fill: "currentColor" }, /* @__PURE__ */ import_react.default.createElement("circle", { cx: "12", cy: "12", r: "10" }));
   var PauseIcon = ({ className }) => /* @__PURE__ */ import_react.default.createElement("svg", { className, viewBox: "0 0 24 24", fill: "currentColor" }, /* @__PURE__ */ import_react.default.createElement("rect", { x: "6", y: "4", width: "4", height: "16" }), /* @__PURE__ */ import_react.default.createElement("rect", { x: "14", y: "4", width: "4", height: "16" }));
   var PlayIcon = ({ className }) => /* @__PURE__ */ import_react.default.createElement("svg", { className, viewBox: "0 0 24 24", fill: "currentColor" }, /* @__PURE__ */ import_react.default.createElement("path", { d: "M8 5v14l11-7z" }));
@@ -28708,24 +28768,31 @@ select{
     const [isPaused, setIsPaused] = (0, import_react.useState)(false);
     const selectionEngineRef = (0, import_react.useRef)(null);
     const handleElementClick = (0, import_react.useCallback)((data) => {
-      const element = data.data?.hoveredSelection || data.data.element;
-      if (element) {
-        setSelectedElements((prev) => {
-          const isParentOf = (parent, child) => {
-            let current = child.parentElement;
-            while (current) {
-              if (current === parent)
-                return true;
-              current = current.parentElement;
-            }
-            return false;
-          };
-          const filtered = prev.filter((el) => !isParentOf(el, element)).filter((el) => !isParentOf(element, el));
-          return [...filtered, element];
-        });
+      console.log("[PageDetailsSelector] handleElementClick called with:", data);
+      const element = data.data?.hoveredSelection || data.data?.element;
+      if (!element) {
+        console.warn("[PageDetailsSelector] No element found in click data:", data);
+        return;
       }
+      console.log("[PageDetailsSelector] Element selected:", element);
+      setSelectedElements((prev) => {
+        const isParentOf = (parent, child) => {
+          let current = child.parentElement;
+          while (current) {
+            if (current === parent)
+              return true;
+            current = current.parentElement;
+          }
+          return false;
+        };
+        const filtered = prev.filter((el) => !isParentOf(el, element)).filter((el) => !isParentOf(element, el));
+        const newSelection = [...filtered, element];
+        console.log("[PageDetailsSelector] Updated selection:", newSelection);
+        return newSelection;
+      });
     }, []);
     const handleElementHovered = (0, import_react.useCallback)((data) => {
+      console.log("[PageDetailsSelector] handleElementHovered called");
       const { element, event } = data;
       if (element) {
         setHoveredElement(element);
@@ -28733,108 +28800,178 @@ select{
           setMousePosition({ x: event.clientX + 10, y: event.clientY + 10 });
         }
         ExtractionEngine.findSimpleExtractableElementsAsync({ element }).then((results) => {
+          console.log("[PageDetailsSelector] Extractables found:", results);
           setExtractables(results || []);
+        }).catch((err) => {
+          console.error("[PageDetailsSelector] Error finding extractables:", err);
+          setExtractables([]);
         });
       }
     }, []);
     const generateSelectors = async () => {
+      console.log("[PageDetailsSelector] generateSelectors called");
+      console.log("[PageDetailsSelector] selectedElements:", selectedElements);
+      if (!selectedElements || selectedElements.length === 0) {
+        console.warn("[PageDetailsSelector] No elements selected for selector generation");
+        return [];
+      }
       const elements = selectedElements.filter(Boolean);
-      const allExtractables = await Promise.all(
-        elements.map(
-          (element) => ExtractionEngine.findSimpleExtractableElementsAsync({ element })
-        )
-      );
-      const flatExtractables = allExtractables.flat();
-      return flatExtractables.filter(Boolean).map((item) => {
-        const { element, type } = item;
-        if (!element || !element.parentElement)
-          return null;
-        const selectors = [];
+      console.log("[PageDetailsSelector] Filtered elements:", elements);
+      if (elements.length === 0) {
+        console.warn("[PageDetailsSelector] No valid elements after filtering");
+        return [];
+      }
+      const result = [];
+      for (const element of elements) {
         try {
-          const generalSelector = css_selector_utils_default.getGeneralizedCssSelector({ element });
-          if (generalSelector) {
-            const index = css_selector_utils_default.verifySelector({
-              rootView: document,
-              element,
-              selector: generalSelector
-            });
-            if (index !== null) {
-              selectors.push({
-                type: "general",
-                selector: generalSelector,
-                index,
-                order: 3
+          console.log("[PageDetailsSelector] Processing element:", element);
+          const extractables2 = await ExtractionEngine.findSimpleExtractableElementsAsync({ element });
+          console.log("[PageDetailsSelector] Extractables for element:", extractables2);
+          if (!extractables2 || extractables2.length === 0) {
+            console.warn("[PageDetailsSelector] No extractables found for element:", element);
+            continue;
+          }
+          for (const extractable of extractables2) {
+            const targetElement = extractable.element;
+            if (!targetElement || !targetElement.parentElement) {
+              console.warn("[PageDetailsSelector] Invalid target element:", targetElement);
+              continue;
+            }
+            console.log("[PageDetailsSelector] Generating selectors for:", targetElement);
+            const selectors = [];
+            try {
+              const generalSelector = css_selector_utils_default.getGeneralizedCssSelector({ element: targetElement });
+              if (generalSelector) {
+                const index = css_selector_utils_default.verifySelector({
+                  rootView: document,
+                  element: targetElement,
+                  selector: generalSelector
+                });
+                if (index !== null) {
+                  selectors.push({
+                    type: "general",
+                    selector: generalSelector,
+                    index,
+                    order: 3
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn("[PageDetailsSelector] Error generating general selector:", e);
+            }
+            try {
+              const nthTypeSelector = css_selector_utils_default.getSelectorNthType({ element: targetElement });
+              if (nthTypeSelector) {
+                const index = css_selector_utils_default.verifySelector({
+                  rootView: document,
+                  element: targetElement,
+                  selector: nthTypeSelector
+                });
+                if (index !== null) {
+                  selectors.push({
+                    type: "nthType",
+                    selector: nthTypeSelector,
+                    index,
+                    order: 2
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn("[PageDetailsSelector] Error generating nth-type selector:", e);
+            }
+            try {
+              const nthChildSelector = css_selector_utils_default.getSelectorNthChild({ element: targetElement });
+              if (nthChildSelector) {
+                const index = css_selector_utils_default.verifySelector({
+                  rootView: document,
+                  element: targetElement,
+                  selector: nthChildSelector
+                });
+                if (index !== null) {
+                  selectors.push({
+                    type: "nthChild",
+                    selector: nthChildSelector,
+                    index,
+                    order: 1
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn("[PageDetailsSelector] Error generating nth-child selector:", e);
+            }
+            if (selectors.length > 0) {
+              result.push({
+                elementId: generateUniqueId(),
+                name: getElementName(targetElement),
+                type: extractable.type,
+                selectors
               });
             }
           }
-        } catch (e) {
+        } catch (err) {
+          console.error("[PageDetailsSelector] Error processing element:", element, err);
         }
-        try {
-          const nthTypeSelector = css_selector_utils_default.getSelectorNthType({ element });
-          if (nthTypeSelector) {
-            const index = css_selector_utils_default.verifySelector({
-              rootView: document,
-              element,
-              selector: nthTypeSelector
-            });
-            if (index !== null) {
-              selectors.push({
-                type: "nthType",
-                selector: nthTypeSelector,
-                index,
-                order: 2
-              });
-            }
-          }
-        } catch (e) {
-        }
-        try {
-          const nthChildSelector = css_selector_utils_default.getSelectorNthChild({ element });
-          if (nthChildSelector) {
-            const index = css_selector_utils_default.verifySelector({
-              rootView: document,
-              element,
-              selector: nthChildSelector
-            });
-            if (index !== null) {
-              selectors.push({
-                type: "nthChild",
-                selector: nthChildSelector,
-                index,
-                order: 1
-              });
-            }
-          }
-        } catch (e) {
-        }
-        return selectors.length > 0 ? {
-          elementId: generateUniqueId(),
-          name: getElementName(element),
-          type,
-          selectors
-        } : null;
-      }).filter(Boolean);
+      }
+      console.log("[PageDetailsSelector] Final generated selectors:", result);
+      return result;
     };
     const handlePreview = async () => {
-      const data = await Promise.all(
-        selectedElements.map(async (element) => {
-          const extractables2 = await ExtractionEngine.findSimpleExtractableElementsAsync({ element });
-          return { element, extractables: extractables2 };
-        })
-      );
-      setPreviewData(data);
-      setShowPreview(true);
+      console.log("[PageDetailsSelector] handlePreview called");
+      if (selectedElements.length === 0) {
+        console.warn("[PageDetailsSelector] No elements selected for preview");
+        return;
+      }
+      try {
+        const data = await Promise.all(
+          selectedElements.map(async (element) => {
+            const extractables2 = await ExtractionEngine.findSimpleExtractableElementsAsync({ element });
+            return { element, extractables: extractables2 };
+          })
+        );
+        console.log("[PageDetailsSelector] Preview data:", data);
+        setPreviewData(data);
+        setShowPreview(true);
+      } catch (err) {
+        console.error("[PageDetailsSelector] Error generating preview:", err);
+      }
     };
     const handleComplete = async () => {
-      const selectors = await generateSelectors();
-      message_utils_default.sendMessageToBackground({
-        action: "page-details-selected",
-        data: { selectors }
-      }).catch((err) => {
-        console.error("Failed to send selectors:", err);
-      });
+      console.log("[PageDetailsSelector] handleComplete called");
+      console.log("[PageDetailsSelector] selectedElements length:", selectedElements.length);
+      if (selectedElements.length === 0) {
+        console.warn("[PageDetailsSelector] No elements selected");
+        alert("Please select at least one element before completing the selection.");
+        return;
+      }
+      try {
+        const selectors = await generateSelectors();
+        console.log("[PageDetailsSelector] Generated selectors:", selectors);
+        if (selectors.length === 0) {
+          console.warn("[PageDetailsSelector] No selectors generated");
+          alert("Could not generate selectors for the selected elements. Please try selecting different elements.");
+          return;
+        }
+        console.log("[PageDetailsSelector] Sending selectors to background");
+        const response = await message_utils_default.sendMessageToBackground({
+          action: "page-details-selected",
+          data: { selectors }
+        });
+        console.log("[PageDetailsSelector] Background response:", response);
+        if (response && response.success) {
+          console.log("[PageDetailsSelector] Selection completed successfully");
+          window.close();
+        } else {
+          console.error("[PageDetailsSelector] Background rejected selection:", response);
+          alert("Failed to complete selection. Please try again.");
+        }
+      } catch (err) {
+        console.error("[PageDetailsSelector] Failed to send selectors:", err);
+        alert("Error completing selection. Please try again.");
+      }
     };
     (0, import_react.useEffect)(() => {
+      console.log("[PageDetailsSelector] Initializing selection engine");
+      document.body.classList.add("panda-page-details-selection-mode");
       selectionEngineRef.current = new SelectionEngine({
         config: {},
         onElementClick: handleElementClick,
@@ -28851,7 +28988,11 @@ select{
       selectionEngineRef.current.attach();
       selectionEngineRef.current.startPageDetailsSelectMode();
       return () => {
-        selectionEngineRef.current.detach();
+        console.log("[PageDetailsSelector] Cleaning up selection engine");
+        document.body.classList.remove("panda-page-details-selection-mode");
+        if (selectionEngineRef.current) {
+          selectionEngineRef.current.detach();
+        }
       };
     }, [handleElementClick, handleElementHovered]);
     (0, import_react.useEffect)(() => {
@@ -28918,7 +29059,7 @@ select{
         className: "w-full px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md transition-colors text-xs font-medium"
       },
       "Close"
-    )))), /* @__PURE__ */ import_react.default.createElement("style", { jsx: true }, `
+    )))), /* @__PURE__ */ import_react.default.createElement("style", null, `
         @keyframes ping-slow {
           75%, 100% {
             transform: scale(2);

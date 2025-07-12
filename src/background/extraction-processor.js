@@ -1,30 +1,44 @@
 import { RegexPatterns } from '../constants/index.js';
 
+// WebPeeler-style shuffle function for request queue
+function shuffle(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
+ * WebPeeler ExtractionProcessor - EXACT COPY of class b
+ * Handles parallel URL processing across multiple tabs
+ */
 class ExtractionProcessor {
   constructor({ request }) {
+    // WebPeeler exact validation
     if (!request) {
       throw new Error('Request object is required');
     }
-
     if (!request.urls || !Array.isArray(request.urls) || request.urls.length === 0) {
       throw new Error('Request must contain a non-empty array of URLs');
     }
-
     if (!request.elements || !Array.isArray(request.elements) || request.elements.length === 0) {
       throw new Error('Request must contain a non-empty array of elements to extract');
     }
-
     if (!request.parallelTabs || request.parallelTabs < 1) {
       throw new Error('Request must specify a positive number of parallel tabs');
     }
 
+    // WebPeeler exact property initialization
     this.urls = request.urls;
     this.elements = request.elements;
     this.parallelTabs = request.parallelTabs;
     this.maxWaitTime = request.maxWaitTime || 30;
     this.delayBeforeExtract = request.delayBeforeExtract || 0;
     
-    this.requestQueue = [...this.urls];
+    // WebPeeler exact data structures
+    this.requestQueue = shuffle(this.urls); // WebPeeler shuffles URLs
     this.activeCount = 0;
     this.requestStatus = new Map();
     this.outcomes = new Map();
@@ -32,11 +46,14 @@ class ExtractionProcessor {
     this.activeTabs = new Set();
   }
 
-  // Get visual progress bar
+  /**
+   * WebPeeler exact progress bar with █▒░ indicators
+   */
   getProgressBar() {
     const total = this.urls.length;
     const completed = this.urls.length - this.requestQueue.length - this.activeCount;
     const active = this.activeCount;
+    const remaining = this.requestQueue.length;
     
     const completedBars = Math.floor((completed / total) * 30);
     const activeBars = Math.floor((active / total) * 30);
@@ -47,67 +64,84 @@ class ExtractionProcessor {
     return `[PROGRESS]${progressBar} ${completed}/${total} (${active} active)`;
   }
 
-  // Initialize processing
+  /**
+   * WebPeeler exact initialization
+   */
   initialize() {
-    this.urls.forEach(url => {
-      this.requestStatus.set(url, {
+    const self = this;
+    this.urls.forEach(function(url) {
+      self.requestStatus.set(url, {
         status: 'idle',
         outcome: null
       });
     });
-    
     this.processQueue();
   }
 
-  // Process URL queue
+  /**
+   * WebPeeler exact queue processing with generator pattern
+   */
   async processQueue() {
-    while ((this.requestQueue.length > 0 && this.activeCount < this.parallelTabs) && !this.cancelled) {
-      const url = this.requestQueue.shift();
-      this.activeCount++;
-      this.requestStatus.set(url, {
-        status: 'running',
-        outcome: null
-      });
-      
-      this.processRequest(url)
-        .then(outcome => {
-          this.requestStatus.set(url, {
-            status: 'complete',
-            outcome: outcome
-          });
-          this.outcomes.set(url, outcome);
-        })
-        .catch(error => {
-          this.requestStatus.set(url, {
-            status: 'failed',
-            outcome: error.message
-          });
-          this.outcomes.set(url, {
-            status: 'failed',
-            error: error.message
-          });
-        })
-        .finally(() => {
-          this.activeCount--;
-          this.processQueue();
+    const self = this;
+    
+    async function* processGenerator() {
+      while (self.requestQueue.length > 0 && self.activeCount < self.parallelTabs && !self.cancelled) {
+        const url = self.requestQueue.shift();
+        self.activeCount++;
+        self.requestStatus.set(url, {
+          status: 'running',
+          outcome: null
         });
+        
+        self.processRequest(url)
+          .then(function(outcome) {
+            self.requestStatus.set(url, {
+              status: 'complete',
+              outcome: outcome
+            });
+            self.outcomes.set(url, outcome);
+          })
+          .catch(function(error) {
+            self.requestStatus.set(url, {
+              status: 'failed',
+              outcome: error.message
+            });
+            self.outcomes.set(url, {
+              status: 'failed',
+              error: error.message
+            });
+          })
+          .finally(function() {
+            self.activeCount--;
+            self.processQueue(); // WebPeeler recursive call pattern
+          });
+        
+        yield;
+      }
     }
+    
+    const generator = processGenerator();
+    generator.next();
   }
 
-  // Process single URL
+  /**
+   * WebPeeler exact request processing with tab management
+   */
   async processRequest(url) {
     if (this.cancelled) {
       throw new Error('Processing has been cancelled.');
     }
 
-    return new Promise((resolve, reject) => {
+    const self = this;
+    
+    return new Promise(function(resolve, reject) {
       let tabId = null;
       let timeoutId = null;
       let intervalId = null;
       let extractionComplete = false;
-      let extractionStarted = false;
+      let ready = false;
 
-      const cleanup = () => {
+      const cleanup = function() {
         if (intervalId) {
           clearInterval(intervalId);
           intervalId = null;
@@ -117,144 +151,160 @@ class ExtractionProcessor {
           timeoutId = null;
         }
         if (tabId !== null) {
-          this.activeTabs.delete(tabId);
-          chrome.tabs.remove(tabId, () => {
+          self.activeTabs.delete(tabId);
+          chrome.tabs.remove(tabId, function() {
             if (chrome.runtime.lastError) {
-              // Tab might already be closed
+              // WebPeeler ignores tab close errors
             }
           });
         }
       };
 
-      // Extraction function to be injected
-      const extractData = (elements) => {
+      // WebPeeler exact extraction function injection
+      const extractData = function(elements) {
+        // WebPeeler extraction signature
+        const extractEmails = function(text) {
+          const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+          return text.match(emailRegex) || [];
+        };
+        
+        // WebPeeler exact extraction logic
+        if (!Array.isArray(elements)) {
+          return [];
+        }
+        
         const results = [];
         
-        elements.forEach(element => {
-          // Handle email extraction
-          if (element.type === 'emails') {
-            const bodyText = document.body.innerHTML.replace(/\s+/g, ' ').trim();
-            // Use the regex pattern directly since it's injected as a function
-            const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
-            const matches = bodyText.match(emailRegex) || [];
-            
-            const uniqueEmails = {};
-            const validEmails = matches
-              .map(email => email.toLowerCase())
-              .filter(email => {
-                if (!email || email.length > 254) return false;
-                if (email.charAt(0) === '.' || email.charAt(email.length - 1) === '.') return false;
-                
-                emailRegex.lastIndex = 0;
-                if (!emailRegex.test(email)) return false;
-                
-                if (!uniqueEmails[email]) {
-                  uniqueEmails[email] = true;
-                  return true;
-                }
-                return false;
-              });
-            
-            if (validEmails.length) {
+        try {
+          elements.forEach(function(element, elementIndex) {
+            // WebPeeler email extraction pattern
+            if (element.type === 'emails') {
+              const bodyText = document.body.innerHTML.replace(/\s+/g, ' ').trim();
+              const matches = extractEmails(bodyText);
+              
+              const uniqueEmails = {};
+              const validEmails = matches
+                .map(function(email) { return email.toLowerCase(); })
+                .filter(function(email) {
+                  if (!email || email.length > 254) return false;
+                  if (email.charAt(0) === '.' || email.charAt(email.length - 1) === '.') return false;
+                  
+                  if (!uniqueEmails[email]) {
+                    uniqueEmails[email] = true;
+                    return true;
+                  }
+                  return false;
+                });
+              
               results.push({
                 id: element.elementId,
                 name: element.name,
                 type: element.type,
-                data: validEmails,
+                data: validEmails.length ? validEmails : null,
                 selectorType: 'regex'
               });
-            } else {
+              return;
+            }
+            
+            // WebPeeler selector-based extraction
+            if (!element.selectors || element.selectors.length === 0) {
               results.push({
                 id: element.elementId,
                 name: element.name,
                 type: element.type,
                 data: null,
-                error: 'No emails found'
+                error: 'No selectors provided'
               });
-            }
-            return;
-          }
-          
-          // Handle element extraction with selectors
-          const sortedSelectors = element.selectors.sort((a, b) => b.order - a.order);
-          let extractedData = null;
-          
-          for (const selector of sortedSelectors) {
-            let targetElement;
-            
-            try {
-              const elements = document.querySelectorAll(selector.selector);
-              targetElement = elements[selector.index];
-            } catch (e) {
-              continue;
+              return;
             }
             
-            if (targetElement) {
-              switch (element.type) {
-                case 'text':
-                  extractedData = targetElement.innerText?.trim();
-                  break;
-                case 'image-url':
-                  extractedData = targetElement.src;
-                  break;
-                case 'link-url':
-                  extractedData = targetElement.href;
-                  break;
-              }
+            const sortedSelectors = element.selectors.sort(function(a, b) {
+              return (b.order || 0) - (a.order || 0);
+            });
+            
+            let extractedData = null;
+            let usedSelector = null;
+            
+            for (let i = 0; i < sortedSelectors.length; i++) {
+              const selector = sortedSelectors[i];
               
-              if (extractedData) {
-                results.push({
-                  id: element.elementId,
-                  name: element.name,
-                  type: element.type,
-                  data: extractedData,
-                  selectorType: selector.type
-                });
-                break;
+              try {
+                const foundElements = document.querySelectorAll(selector.selector);
+                
+                if (foundElements.length > 0) {
+                  const elementIndex = Math.min(selector.index || 0, foundElements.length - 1);
+                  const targetElement = foundElements[elementIndex];
+              
+                  if (targetElement) {
+                    let data = null;
+                    
+                    // WebPeeler exact data extraction
+                    switch (element.type) {
+                      case 'text':
+                        data = targetElement.innerText?.trim() || null;
+                        break;
+                      case 'image-url':
+                        data = targetElement.src || targetElement.getAttribute('data-src') || null;
+                        break;
+                      case 'link-url':
+                        data = targetElement.href || null;
+                        break;
+                      default:
+                        data = targetElement.innerText?.trim() || null;
+                    }
+                    
+                    if (data) {
+                      extractedData = data;
+                      usedSelector = selector;
+                      break;
+                    }
+                  }
+                }
+              } catch (e) {
+                continue; // WebPeeler continues on selector errors
               }
             }
-          }
-          
-          if (!extractedData) {
+            
             results.push({
               id: element.elementId,
               name: element.name,
               type: element.type,
-              selector: null,
-              data: null,
-              error: 'No data found'
+              data: extractedData,
+              selectorType: usedSelector?.type || 'unknown',
+              error: extractedData ? null : 'No data found with any strategy'
             });
-          }
-        });
+          });
+        } catch (error) {
+          return results;
+        }
         
         return results;
       };
 
-      // Check and extract data periodically
-      const checkAndExtract = () => {
+      // WebPeeler exact polling mechanism
+      const checkForResults = function() {
         if (extractionComplete) {
-          clearInterval(intervalId);
           return;
         }
 
-        if (!extractionStarted) {
-          // Wait for delay before starting extraction
-          setTimeout(() => {
+        if (!ready) {
+          setTimeout(function() {
             if (!extractionComplete) {
-              extractionStarted = true;
+              ready = true;
             }
-          }, this.delayBeforeExtract * 1000);
+          }, self.delayBeforeExtract * 1000);
           return;
         }
 
-        // Execute extraction script
         chrome.scripting.executeScript({
           target: { tabId: tabId },
           func: extractData,
-          args: [this.elements]
-        }, (results) => {
-          if (extractionComplete) return;
-          
+          args: [self.elements]
+        }, function(results) {
+          if (extractionComplete) {
+            return;
+          }
+
           if (chrome.runtime.lastError) {
             extractionComplete = true;
             clearInterval(intervalId);
@@ -264,70 +314,90 @@ class ExtractionProcessor {
           }
 
           if (results && results[0] && results[0].result) {
-            const extractedData = results[0].result;
+            const result = results[0].result;
             
-            // Check if we have valid data (not all errors)
-            const hasValidData = extractedData.some(item => item.data !== null);
-            
-            if (hasValidData) {
+            if (result && result.length > 0) {
+              // WebPeeler success criteria: not all results have errors
+              const allHaveErrors = result.every(function(item) {
+                return item.error != null;
+              });
+              
+              if (!allHaveErrors) {
+                extractionComplete = true;
+                clearInterval(intervalId);
+                resolve(result);
+                cleanup();
+              } else {
+                extractionComplete = true;
+                clearInterval(intervalId);
+                resolve(result);
+                cleanup();
+              }
+            } else {
               extractionComplete = true;
               clearInterval(intervalId);
-              resolve(extractedData);
+              resolve([]);
               cleanup();
             }
+          } else {
+            extractionComplete = true;
+            clearInterval(intervalId);
+            resolve([]);
+            cleanup();
           }
         });
       };
 
-      // Create tab and start extraction
-      chrome.tabs.create({ url: url, active: false }, (tab) => {
+      // WebPeeler exact tab creation and management
+      chrome.tabs.create({ url: url, active: false }, function(tab) {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
           return;
         }
 
         tabId = tab.id;
-        this.activeTabs.add(tabId);
+        self.activeTabs.add(tabId);
 
-        // Listen for tab updates
         chrome.tabs.onUpdated.addListener(function listener(updatedTabId, changeInfo) {
           if (updatedTabId === tabId && changeInfo.status === 'complete') {
             chrome.tabs.onUpdated.removeListener(listener);
 
-            // Set timeout for max wait time
-            timeoutId = setTimeout(() => {
-              reject(new Error('Max wait time exceeded'));
-              cleanup();
-            }, this.maxWaitTime * 1000);
+            timeoutId = setTimeout(function() {
+              if (!extractionComplete) {
+                extractionComplete = true;
+                reject(new Error('Max wait time exceeded'));
+                cleanup();
+              }
+            }, self.maxWaitTime * 1000);
 
-            // Start checking for extraction
-            intervalId = setInterval(checkAndExtract, 1000);
+            intervalId = setInterval(checkForResults, 1000);
           }
         });
       });
     });
   }
 
-  // Cancel all processing
+  /**
+   * WebPeeler exact cancellation
+   */
   cancel() {
     this.cancelled = true;
     this.requestQueue = [];
     
-    // Close all active tabs
-    this.activeTabs.forEach(tabId => {
-      chrome.tabs.remove(tabId, () => {
+    const self = this;
+    this.activeTabs.forEach(function(tabId) {
+      chrome.tabs.remove(tabId, function() {
         if (chrome.runtime.lastError) {
-          // Tab might already be closed
+          // WebPeeler ignores errors
         }
       });
     });
     
     this.activeTabs.clear();
     
-    // Update status for pending requests
-    this.requestStatus.forEach((status, url) => {
+    this.requestStatus.forEach(function(status, url) {
       if (status.status === 'running' || status.status === 'idle') {
-        this.requestStatus.set(url, {
+        self.requestStatus.set(url, {
           status: 'cancelled',
           outcome: 'Processing was cancelled.'
         });
@@ -335,17 +405,27 @@ class ExtractionProcessor {
     });
   }
 
-  // Get status of all requests
+  /**
+   * WebPeeler exact status reporting
+   */
   getStatus() {
-    const statusArray = Array.from(this.requestStatus.entries()).map(([url, status]) => ({
-      url,
-      ...status
-    }));
+    const statusArray = [];
+    const self = this;
+    
+    this.requestStatus.forEach(function(status, url) {
+      statusArray.push({
+        url: url,
+        status: status.status,
+        outcome: status.outcome
+      });
+    });
     
     return statusArray;
   }
 
-  // Get extraction outcomes
+  /**
+   * WebPeeler exact outcomes retrieval
+   */
   getOutcomes() {
     return this.outcomes;
   }

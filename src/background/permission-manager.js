@@ -1,25 +1,32 @@
 import StorageManager from './storage-manager.js';
 import { StorageKeys } from '../constants/index.js';
 
+/**
+ * WebPeeler PermissionManager - EXACT COPY of function O pattern with enhancements
+ * Manages Chrome extension permissions with WebPeeler compatibility
+ */
 class PermissionManager {
-  // Check and request all URLs permission
+  
+  /**
+   * WebPeeler exact all URLs permission handler - EXACT COPY of function O
+   */
   static requestAllUrlsPermission({ onSuccess, onFailure }) {
     chrome.permissions.contains({
       permissions: [],
       origins: ['<all_urls>']
-    }, (hasPermission) => {
+    }, function(hasPermission) {
       if (hasPermission) {
-        StorageManager.save(StorageKeys.PERMISSIONS_GRANTED, true);
+        StorageManager.save('permissionsGranted', true);
         onSuccess();
       } else {
         chrome.permissions.request({
           permissions: [],
           origins: ['<all_urls>']
-        }, (granted) => {
+        }, function(granted) {
           const error = chrome.runtime.lastError;
           
           if (error) {
-            // Handle user gesture requirement
+            // WebPeeler exact user gesture handling
             if (error.message.includes('user gesture')) {
               chrome.runtime.openOptionsPage();
             }
@@ -28,7 +35,7 @@ class PermissionManager {
           }
           
           if (granted) {
-            StorageManager.save(StorageKeys.PERMISSIONS_GRANTED, true);
+            StorageManager.save('permissionsGranted', true);
             onSuccess();
           } else {
             onFailure();
@@ -38,25 +45,27 @@ class PermissionManager {
     });
   }
 
-  // Check and request clipboard write permission
+  /**
+   * WebPeeler-style clipboard permission handler
+   */
   static requestClipboardPermission({ onSuccess, onFailure }) {
     chrome.permissions.contains({
       permissions: ['clipboardWrite']
-    }, (hasPermission) => {
+    }, function(hasPermission) {
       if (hasPermission) {
-        StorageManager.save(StorageKeys.PERMISSIONS_CLIPBOARD_GRANTED, true);
+        StorageManager.save('permissionsClipboardGranted', true);
         onSuccess();
       } else {
         chrome.permissions.request({
           permissions: ['clipboardWrite']
-        }, (granted) => {
+        }, function(granted) {
           if (chrome.runtime.lastError) {
             onFailure();
             return;
           }
           
           if (granted) {
-            StorageManager.save(StorageKeys.PERMISSIONS_CLIPBOARD_GRANTED, true);
+            StorageManager.save('permissionsClipboardGranted', true);
             onSuccess();
           } else {
             onFailure();
@@ -66,17 +75,19 @@ class PermissionManager {
     });
   }
 
-  // Check and request downloads permission
+  /**
+   * WebPeeler-style downloads permission handler
+   */
   static requestDownloadsPermission({ onSuccess, onFailure }) {
     chrome.permissions.contains({
       permissions: ['downloads']
-    }, (hasPermission) => {
+    }, function(hasPermission) {
       if (hasPermission) {
         onSuccess();
       } else {
         chrome.permissions.request({
           permissions: ['downloads']
-        }, (granted) => {
+        }, function(granted) {
           if (chrome.runtime.lastError) {
             onFailure();
             return;
@@ -92,67 +103,67 @@ class PermissionManager {
     });
   }
 
-  // Check if has all URLs permission
+  /**
+   * Enhanced permission checking methods (improvements over WebPeeler)
+   */
   static async hasAllUrlsPermission() {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       chrome.permissions.contains({
         permissions: [],
         origins: ['<all_urls>']
-      }, (hasPermission) => {
+      }, function(hasPermission) {
         resolve(hasPermission);
       });
     });
   }
 
-  // Check if has clipboard permission
   static async hasClipboardPermission() {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       chrome.permissions.contains({
         permissions: ['clipboardWrite']
-      }, (hasPermission) => {
+      }, function(hasPermission) {
         resolve(hasPermission);
       });
     });
   }
 
-  // Check if has downloads permission
   static async hasDownloadsPermission() {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       chrome.permissions.contains({
         permissions: ['downloads']
-      }, (hasPermission) => {
+      }, function(hasPermission) {
         resolve(hasPermission);
       });
     });
   }
 
-  // Remove permission
+  /**
+   * Enhanced permission management methods (improvements over WebPeeler)
+   */
   static async removePermission(permission) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       chrome.permissions.remove({
         permissions: [permission]
-      }, (removed) => {
+      }, function(removed) {
         resolve(removed);
       });
     });
   }
 
-  // Get all granted permissions
   static async getAllPermissions() {
-    return new Promise((resolve) => {
-      chrome.permissions.getAll((permissions) => {
+    return new Promise(function(resolve) {
+      chrome.permissions.getAll(function(permissions) {
         resolve(permissions);
       });
     });
   }
 
-  // Request multiple permissions at once
   static async requestMultiplePermissions(permissions, origins = []) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       chrome.permissions.request({
         permissions: permissions,
         origins: origins
-      }, (granted) => {
+      }, function(granted) {
         if (chrome.runtime.lastError) {
           resolve(false);
         } else {
@@ -162,13 +173,12 @@ class PermissionManager {
     });
   }
 
-  // Check multiple permissions at once
   static async hasMultiplePermissions(permissions, origins = []) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       chrome.permissions.contains({
         permissions: permissions,
         origins: origins
-      }, (hasAll) => {
+      }, function(hasAll) {
         resolve(hasAll);
       });
     });

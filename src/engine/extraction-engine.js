@@ -73,9 +73,10 @@ export class ExtractionEngine {
                       return;
                     }
                   } catch (e) {}
-                } else {
-                  // For depth 1, extract text from any element that has text content
-                  // This is more permissive than WebPeeler but necessary for selection to work
+                } else if (Array.from(n.childNodes).every(function (childNode) {
+                  return childNode.nodeType === Node.TEXT_NODE || ExtractionEngine.regexAcceptableNodes.test(childNode.nodeName);
+                })) {
+                  // EXACT WebPeeler logic: for depth=1, only extract if ALL child nodes are text nodes OR acceptable nodes
                   try {
                     let s;
                     l = n == null || (s = n.innerText) === null || s === undefined ? undefined : s.trim();
@@ -272,13 +273,20 @@ export class ExtractionEngine {
   }
 
   /**
-   * Find simple extractable elements - EXACT COPY
+   * Find simple extractable elements - EXACT WebPeeler implementation with debugging
    */
   static findSimpleExtractableElements(e) {
     let n;
     const t = e.element;
     const r = [];
+    
+    console.log('[ExtractionEngine] findSimpleExtractableElements called with element:', t);
+    console.log('[ExtractionEngine] Element tagName:', t.tagName);
+    console.log('[ExtractionEngine] Element innerHTML preview:', t.innerHTML?.substring(0, 200));
+    
+    // EXACT WebPeeler text extraction
     const a = (n = t.innerText) === null || n === undefined ? undefined : n.trim();
+    console.log('[ExtractionEngine] innerText extracted:', a ? `"${a.substring(0, 100)}..."` : 'null/empty');
     
     if (a) {
       r.push({
@@ -286,9 +294,15 @@ export class ExtractionEngine {
         data: a,
         element: t
       });
+      console.log('[ExtractionEngine] Added TEXT extractable');
+    } else {
+      console.log('[ExtractionEngine] No text content found');
     }
     
+    // EXACT WebPeeler link extraction
     const o = t.querySelectorAll("a");
+    console.log('[ExtractionEngine] Found', o.length, 'link(s) in element');
+    
     if (t.tagName === "A" && t.href && !t.href.startsWith("javascript:")) {
       const i = t.href;
       if (i) {
@@ -297,6 +311,7 @@ export class ExtractionEngine {
           data: i,
           element: t
         });
+        console.log('[ExtractionEngine] Added LINK_URL extractable (self):', i);
       }
     } else if (o.length === 1 && !o[0].href.startsWith("javascript:")) {
       const l = o[0].href;
@@ -306,9 +321,11 @@ export class ExtractionEngine {
           data: l,
           element: o[0]
         });
+        console.log('[ExtractionEngine] Added LINK_URL extractable (child):', l);
       }
     }
     
+    // EXACT WebPeeler image extraction
     if (t.tagName === "IMG" && t.src) {
       const c = t.src;
       if (c) {
@@ -317,8 +334,12 @@ export class ExtractionEngine {
           data: c,
           element: t
         });
+        console.log('[ExtractionEngine] Added IMAGE_URL extractable:', c);
       }
     }
+    
+    console.log('[ExtractionEngine] Final extractables count:', r.length);
+    console.log('[ExtractionEngine] Final extractables:', r);
     
     return r;
   }

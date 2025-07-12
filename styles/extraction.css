@@ -7,12 +7,23 @@
   color: #333;
 }
 
+/* Cursor styles for different selection modes */
+.panda-page-details-selection-mode {
+  cursor: crosshair !important;
+}
+
+.panda-page-details-selection-mode * {
+  cursor: crosshair !important;
+}
+
 .panda-extract-cursor-move-overlay {
   position: absolute;
   pointer-events: none;
   border: 2px solid #4CAF50;
   background: rgba(76, 175, 80, 0.1);
   z-index: 10000;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.3);
 }
 
 .panda-extract-element-info-overlay {
@@ -50,6 +61,13 @@
 .panda-extractable-highlight {
   outline: 2px solid #FF9800 !important;
   background: rgba(255, 152, 0, 0.1) !important;
+}
+
+/* Selected element highlighting for page-details mode */
+.panda-highlight-child-element-active {
+  outline: 3px solid #4CAF50 !important;
+  background: rgba(76, 175, 80, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.3) !important;
 }
 
 /* Highlighting classes */
@@ -174,6 +192,7 @@
 .empty-view-title-container p {
   margin: 8px 0;
 }
+
 
 
 

@@ -29,53 +29,51 @@
     STATUS_UPDATE_EXTRACT: "status-update-extract",
     STATUS_UPDATE_EXTRACT_EMAILS: "status-update-extract-emails"
   };
-  var StorageKeys = {
-    PERMISSIONS_GRANTED: "permissionsGranted",
-    PERMISSIONS_CLIPBOARD_GRANTED: "permissionsClipboardGranted",
-    REQUEST_HIGHLIGHT_TAB_ID: "requestHighlightTabId",
-    EXTRACT_SETTINGS: "extractSettings"
-  };
 
   // src/background/storage-manager.js
   var StorageManager = class {
-    // Save data to chrome.storage.local
+    /**
+     * WebPeeler exact save method
+     */
     static save(key, value) {
       try {
         if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set({ [key]: value }, () => {
-            if (chrome.runtime.lastError) {
-              console.error("Storage save error:", chrome.runtime.lastError);
-            }
+          chrome.storage.local.set({
+            [key]: value
+          }, function() {
+            chrome.runtime.lastError;
           });
         }
       } catch (error) {
-        console.error("Error saving to storage:", error);
       }
     }
-    // Get all storage keys
+    /**
+     * WebPeeler exact getAllKeys method
+     */
     static async getAllKeys() {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(null, (items) => {
-              const keys = Object.keys(items);
+            chrome.storage.local.get(null, function(result) {
+              const keys = Object.keys(result);
               resolve(keys);
             });
           } else {
             resolve([]);
           }
         } catch (error) {
-          console.error("Error getting all keys:", error);
           resolve([]);
         }
       });
     }
-    // Retrieve data by key
+    /**
+     * WebPeeler exact retrieve method
+     */
     static async retrieve(key) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get([key], (result) => {
+            chrome.storage.local.get([key], function(result) {
               if (result[key] !== void 0) {
                 resolve(result[key]);
               } else {
@@ -86,120 +84,163 @@
             resolve(null);
           }
         } catch (error) {
-          console.error("Error retrieving from storage:", error);
           resolve(null);
         }
       });
     }
-    // Remove data by key
+    /**
+     * WebPeeler exact remove method
+     */
     static async remove(key) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.remove(key, () => {
+            chrome.storage.local.remove(key, function() {
               resolve();
             });
           } else {
             resolve();
           }
         } catch (error) {
-          console.error("Error removing from storage:", error);
           resolve();
         }
       });
     }
-    // Remove any keys matching pattern
+    /**
+     * WebPeeler exact removeAny method (pattern matching removal)
+     */
     static async removeAny(pattern) {
-      return new Promise(async (resolve) => {
+      const self2 = this;
+      return new Promise(function(resolve, reject) {
+        async function removeMatching() {
+          try {
+            if (chrome && chrome.storage && chrome.storage.local) {
+              const keys = await self2.getAllKeys();
+              const matchingKeys = keys.filter(function(key) {
+                return key.includes(pattern);
+              });
+              if (matchingKeys.length === 0) {
+                resolve();
+                return;
+              }
+              chrome.storage.local.remove(matchingKeys, function() {
+                resolve();
+              });
+            } else {
+              resolve();
+            }
+          } catch (error) {
+            resolve();
+          }
+        }
+        removeMatching();
+      });
+    }
+    /**
+     * Enhanced clearAll method (improvement over WebPeeler)
+     */
+    static async clearAll() {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            const allKeys = await this.getAllKeys();
-            const keysToRemove = allKeys.filter((key) => key.includes(pattern));
-            if (keysToRemove.length === 0) {
-              resolve();
-              return;
-            }
-            chrome.storage.local.remove(keysToRemove, () => {
-              resolve();
+            chrome.storage.local.clear(function() {
+              if (chrome.runtime.lastError) {
+                console.error("Error clearing storage:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve();
+              }
             });
           } else {
             resolve();
           }
         } catch (error) {
-          console.error("Error removing keys by pattern:", error);
-          resolve();
+          console.error("Storage clear error:", error);
+          reject(error);
         }
       });
     }
-    // Clear all storage data
-    static clearAll() {
-      try {
-        if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.clear(() => {
-            if (chrome.runtime.lastError) {
-              console.error("Storage clear error:", chrome.runtime.lastError);
-            }
-          });
-        }
-      } catch (error) {
-        console.error("Error clearing storage:", error);
-      }
-    }
-    // Batch operations
+    /**
+     * Enhanced getMultiple method (improvement over WebPeeler)
+     */
     static async getMultiple(keys) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(keys, (result) => {
-              resolve(result);
+            chrome.storage.local.get(keys, function(result) {
+              if (chrome.runtime.lastError) {
+                console.error("Error getting multiple keys:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(result);
+              }
             });
           } else {
             resolve({});
           }
         } catch (error) {
-          console.error("Error getting multiple keys:", error);
-          resolve({});
+          console.error("Storage getMultiple error:", error);
+          reject(error);
         }
       });
     }
-    // Save multiple key-value pairs
-    static saveMultiple(items) {
-      try {
-        if (chrome && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set(items, () => {
-            if (chrome.runtime.lastError) {
-              console.error("Storage save multiple error:", chrome.runtime.lastError);
-            }
-          });
+    /**
+     * Enhanced saveMultiple method (improvement over WebPeeler)
+     */
+    static async saveMultiple(items) {
+      return new Promise(function(resolve, reject) {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set(items, function() {
+              if (chrome.runtime.lastError) {
+                console.error("Error saving multiple items:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve();
+              }
+            });
+          } else {
+            resolve();
+          }
+        } catch (error) {
+          console.error("Storage saveMultiple error:", error);
+          reject(error);
         }
-      } catch (error) {
-        console.error("Error saving multiple items:", error);
-      }
+      });
     }
-    // Listen for storage changes
+    /**
+     * Enhanced storage listener (improvement over WebPeeler)
+     */
     static addListener(callback) {
       if (chrome && chrome.storage && chrome.storage.onChanged) {
-        chrome.storage.onChanged.addListener((changes, areaName) => {
+        chrome.storage.onChanged.addListener(function(changes, areaName) {
           if (areaName === "local") {
             callback(changes);
           }
         });
       }
     }
-    // Get storage size info
+    /**
+     * Enhanced storage size monitoring (improvement over WebPeeler)
+     */
     static async getBytesInUse(keys = null) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve, reject) {
         try {
           if (chrome && chrome.storage && chrome.storage.local && chrome.storage.local.getBytesInUse) {
-            chrome.storage.local.getBytesInUse(keys, (bytesInUse) => {
-              resolve(bytesInUse);
+            chrome.storage.local.getBytesInUse(keys, function(bytesInUse) {
+              if (chrome.runtime.lastError) {
+                console.error("Error getting bytes in use:", chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(bytesInUse);
+              }
             });
           } else {
             resolve(0);
           }
         } catch (error) {
-          console.error("Error getting storage size:", error);
-          resolve(0);
+          console.error("Storage getBytesInUse error:", error);
+          reject(error);
         }
       });
     }
@@ -208,20 +249,22 @@
 
   // src/background/permission-manager.js
   var PermissionManager = class {
-    // Check and request all URLs permission
+    /**
+     * WebPeeler exact all URLs permission handler - EXACT COPY of function O
+     */
     static requestAllUrlsPermission({ onSuccess, onFailure }) {
       chrome.permissions.contains({
         permissions: [],
         origins: ["<all_urls>"]
-      }, (hasPermission) => {
+      }, function(hasPermission) {
         if (hasPermission) {
-          storage_manager_default.save(StorageKeys.PERMISSIONS_GRANTED, true);
+          storage_manager_default.save("permissionsGranted", true);
           onSuccess();
         } else {
           chrome.permissions.request({
             permissions: [],
             origins: ["<all_urls>"]
-          }, (granted) => {
+          }, function(granted) {
             const error = chrome.runtime.lastError;
             if (error) {
               if (error.message.includes("user gesture")) {
@@ -231,7 +274,7 @@
               return;
             }
             if (granted) {
-              storage_manager_default.save(StorageKeys.PERMISSIONS_GRANTED, true);
+              storage_manager_default.save("permissionsGranted", true);
               onSuccess();
             } else {
               onFailure();
@@ -240,24 +283,26 @@
         }
       });
     }
-    // Check and request clipboard write permission
+    /**
+     * WebPeeler-style clipboard permission handler
+     */
     static requestClipboardPermission({ onSuccess, onFailure }) {
       chrome.permissions.contains({
         permissions: ["clipboardWrite"]
-      }, (hasPermission) => {
+      }, function(hasPermission) {
         if (hasPermission) {
-          storage_manager_default.save(StorageKeys.PERMISSIONS_CLIPBOARD_GRANTED, true);
+          storage_manager_default.save("permissionsClipboardGranted", true);
           onSuccess();
         } else {
           chrome.permissions.request({
             permissions: ["clipboardWrite"]
-          }, (granted) => {
+          }, function(granted) {
             if (chrome.runtime.lastError) {
               onFailure();
               return;
             }
             if (granted) {
-              storage_manager_default.save(StorageKeys.PERMISSIONS_CLIPBOARD_GRANTED, true);
+              storage_manager_default.save("permissionsClipboardGranted", true);
               onSuccess();
             } else {
               onFailure();
@@ -266,17 +311,19 @@
         }
       });
     }
-    // Check and request downloads permission
+    /**
+     * WebPeeler-style downloads permission handler
+     */
     static requestDownloadsPermission({ onSuccess, onFailure }) {
       chrome.permissions.contains({
         permissions: ["downloads"]
-      }, (hasPermission) => {
+      }, function(hasPermission) {
         if (hasPermission) {
           onSuccess();
         } else {
           chrome.permissions.request({
             permissions: ["downloads"]
-          }, (granted) => {
+          }, function(granted) {
             if (chrome.runtime.lastError) {
               onFailure();
               return;
@@ -290,62 +337,62 @@
         }
       });
     }
-    // Check if has all URLs permission
+    /**
+     * Enhanced permission checking methods (improvements over WebPeeler)
+     */
     static async hasAllUrlsPermission() {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve) {
         chrome.permissions.contains({
           permissions: [],
           origins: ["<all_urls>"]
-        }, (hasPermission) => {
+        }, function(hasPermission) {
           resolve(hasPermission);
         });
       });
     }
-    // Check if has clipboard permission
     static async hasClipboardPermission() {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve) {
         chrome.permissions.contains({
           permissions: ["clipboardWrite"]
-        }, (hasPermission) => {
+        }, function(hasPermission) {
           resolve(hasPermission);
         });
       });
     }
-    // Check if has downloads permission
     static async hasDownloadsPermission() {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve) {
         chrome.permissions.contains({
           permissions: ["downloads"]
-        }, (hasPermission) => {
+        }, function(hasPermission) {
           resolve(hasPermission);
         });
       });
     }
-    // Remove permission
+    /**
+     * Enhanced permission management methods (improvements over WebPeeler)
+     */
     static async removePermission(permission) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve) {
         chrome.permissions.remove({
           permissions: [permission]
-        }, (removed) => {
+        }, function(removed) {
           resolve(removed);
         });
       });
     }
-    // Get all granted permissions
     static async getAllPermissions() {
-      return new Promise((resolve) => {
-        chrome.permissions.getAll((permissions) => {
+      return new Promise(function(resolve) {
+        chrome.permissions.getAll(function(permissions) {
           resolve(permissions);
         });
       });
     }
-    // Request multiple permissions at once
     static async requestMultiplePermissions(permissions, origins = []) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve) {
         chrome.permissions.request({
           permissions,
           origins
-        }, (granted) => {
+        }, function(granted) {
           if (chrome.runtime.lastError) {
             resolve(false);
           } else {
@@ -354,13 +401,12 @@
         });
       });
     }
-    // Check multiple permissions at once
     static async hasMultiplePermissions(permissions, origins = []) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve) {
         chrome.permissions.contains({
           permissions,
           origins
-        }, (hasAll) => {
+        }, function(hasAll) {
           resolve(hasAll);
         });
       });
@@ -369,6 +415,14 @@
   var permission_manager_default = PermissionManager;
 
   // src/background/extraction-processor.js
+  function shuffle(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
   var ExtractionProcessor = class {
     constructor({ request }) {
       if (!request) {
@@ -388,76 +442,93 @@
       this.parallelTabs = request.parallelTabs;
       this.maxWaitTime = request.maxWaitTime || 30;
       this.delayBeforeExtract = request.delayBeforeExtract || 0;
-      this.requestQueue = [...this.urls];
+      this.requestQueue = shuffle(this.urls);
       this.activeCount = 0;
       this.requestStatus = /* @__PURE__ */ new Map();
       this.outcomes = /* @__PURE__ */ new Map();
       this.cancelled = false;
       this.activeTabs = /* @__PURE__ */ new Set();
     }
-    // Get visual progress bar
+    /**
+     * WebPeeler exact progress bar with █▒░ indicators
+     */
     getProgressBar() {
       const total = this.urls.length;
       const completed = this.urls.length - this.requestQueue.length - this.activeCount;
       const active = this.activeCount;
+      const remaining = this.requestQueue.length;
       const completedBars = Math.floor(completed / total * 30);
       const activeBars = Math.floor(active / total * 30);
       const remainingBars = 30 - completedBars - activeBars;
       const progressBar = "\u2588".repeat(completedBars) + "\u2592".repeat(activeBars) + "\u2591".repeat(remainingBars);
       return `[PROGRESS]${progressBar} ${completed}/${total} (${active} active)`;
     }
-    // Initialize processing
+    /**
+     * WebPeeler exact initialization
+     */
     initialize() {
-      this.urls.forEach((url) => {
-        this.requestStatus.set(url, {
+      const self2 = this;
+      this.urls.forEach(function(url) {
+        self2.requestStatus.set(url, {
           status: "idle",
           outcome: null
         });
       });
       this.processQueue();
     }
-    // Process URL queue
+    /**
+     * WebPeeler exact queue processing with generator pattern
+     */
     async processQueue() {
-      while (this.requestQueue.length > 0 && this.activeCount < this.parallelTabs && !this.cancelled) {
-        const url = this.requestQueue.shift();
-        this.activeCount++;
-        this.requestStatus.set(url, {
-          status: "running",
-          outcome: null
-        });
-        this.processRequest(url).then((outcome) => {
-          this.requestStatus.set(url, {
-            status: "complete",
-            outcome
+      const self2 = this;
+      async function* processGenerator() {
+        while (self2.requestQueue.length > 0 && self2.activeCount < self2.parallelTabs && !self2.cancelled) {
+          const url = self2.requestQueue.shift();
+          self2.activeCount++;
+          self2.requestStatus.set(url, {
+            status: "running",
+            outcome: null
           });
-          this.outcomes.set(url, outcome);
-        }).catch((error) => {
-          this.requestStatus.set(url, {
-            status: "failed",
-            outcome: error.message
+          self2.processRequest(url).then(function(outcome) {
+            self2.requestStatus.set(url, {
+              status: "complete",
+              outcome
+            });
+            self2.outcomes.set(url, outcome);
+          }).catch(function(error) {
+            self2.requestStatus.set(url, {
+              status: "failed",
+              outcome: error.message
+            });
+            self2.outcomes.set(url, {
+              status: "failed",
+              error: error.message
+            });
+          }).finally(function() {
+            self2.activeCount--;
+            self2.processQueue();
           });
-          this.outcomes.set(url, {
-            status: "failed",
-            error: error.message
-          });
-        }).finally(() => {
-          this.activeCount--;
-          this.processQueue();
-        });
+          yield;
+        }
       }
+      const generator = processGenerator();
+      generator.next();
     }
-    // Process single URL
+    /**
+     * WebPeeler exact request processing with tab management
+     */
     async processRequest(url) {
       if (this.cancelled) {
         throw new Error("Processing has been cancelled.");
       }
-      return new Promise((resolve, reject) => {
+      const self2 = this;
+      return new Promise(function(resolve, reject) {
         let tabId = null;
         let timeoutId = null;
         let intervalId = null;
         let extractionComplete = false;
-        let extractionStarted = false;
-        const cleanup = () => {
+        let ready = false;
+        const cleanup = function() {
           if (intervalId) {
             clearInterval(intervalId);
             intervalId = null;
@@ -467,121 +538,132 @@
             timeoutId = null;
           }
           if (tabId !== null) {
-            this.activeTabs.delete(tabId);
-            chrome.tabs.remove(tabId, () => {
+            self2.activeTabs.delete(tabId);
+            chrome.tabs.remove(tabId, function() {
               if (chrome.runtime.lastError) {
               }
             });
           }
         };
-        const extractData = (elements) => {
+        const extractData = function(elements) {
+          const extractEmails = function(text) {
+            const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+            return text.match(emailRegex) || [];
+          };
+          if (!Array.isArray(elements)) {
+            return [];
+          }
           const results = [];
-          elements.forEach((element) => {
-            if (element.type === "emails") {
-              const bodyText = document.body.innerHTML.replace(/\s+/g, " ").trim();
-              const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
-              const matches = bodyText.match(emailRegex) || [];
-              const uniqueEmails = {};
-              const validEmails = matches.map((email) => email.toLowerCase()).filter((email) => {
-                if (!email || email.length > 254)
+          try {
+            elements.forEach(function(element, elementIndex) {
+              if (element.type === "emails") {
+                const bodyText = document.body.innerHTML.replace(/\s+/g, " ").trim();
+                const matches = extractEmails(bodyText);
+                const uniqueEmails = {};
+                const validEmails = matches.map(function(email) {
+                  return email.toLowerCase();
+                }).filter(function(email) {
+                  if (!email || email.length > 254)
+                    return false;
+                  if (email.charAt(0) === "." || email.charAt(email.length - 1) === ".")
+                    return false;
+                  if (!uniqueEmails[email]) {
+                    uniqueEmails[email] = true;
+                    return true;
+                  }
                   return false;
-                if (email.charAt(0) === "." || email.charAt(email.length - 1) === ".")
-                  return false;
-                emailRegex.lastIndex = 0;
-                if (!emailRegex.test(email))
-                  return false;
-                if (!uniqueEmails[email]) {
-                  uniqueEmails[email] = true;
-                  return true;
-                }
-                return false;
-              });
-              if (validEmails.length) {
+                });
                 results.push({
                   id: element.elementId,
                   name: element.name,
                   type: element.type,
-                  data: validEmails,
+                  data: validEmails.length ? validEmails : null,
                   selectorType: "regex"
                 });
-              } else {
+                return;
+              }
+              if (!element.selectors || element.selectors.length === 0) {
                 results.push({
                   id: element.elementId,
                   name: element.name,
                   type: element.type,
                   data: null,
-                  error: "No emails found"
+                  error: "No selectors provided"
                 });
+                return;
               }
-              return;
-            }
-            const sortedSelectors = element.selectors.sort((a, b) => b.order - a.order);
-            let extractedData = null;
-            for (const selector of sortedSelectors) {
-              let targetElement;
-              try {
-                const elements2 = document.querySelectorAll(selector.selector);
-                targetElement = elements2[selector.index];
-              } catch (e) {
-                continue;
-              }
-              if (targetElement) {
-                switch (element.type) {
-                  case "text":
-                    extractedData = targetElement.innerText?.trim();
-                    break;
-                  case "image-url":
-                    extractedData = targetElement.src;
-                    break;
-                  case "link-url":
-                    extractedData = targetElement.href;
-                    break;
+              const sortedSelectors = element.selectors.sort(function(a, b) {
+                return (b.order || 0) - (a.order || 0);
+              });
+              let extractedData = null;
+              let usedSelector = null;
+              for (let i = 0; i < sortedSelectors.length; i++) {
+                const selector = sortedSelectors[i];
+                try {
+                  const foundElements = document.querySelectorAll(selector.selector);
+                  if (foundElements.length > 0) {
+                    const elementIndex2 = Math.min(selector.index || 0, foundElements.length - 1);
+                    const targetElement = foundElements[elementIndex2];
+                    if (targetElement) {
+                      let data = null;
+                      switch (element.type) {
+                        case "text":
+                          data = targetElement.innerText?.trim() || null;
+                          break;
+                        case "image-url":
+                          data = targetElement.src || targetElement.getAttribute("data-src") || null;
+                          break;
+                        case "link-url":
+                          data = targetElement.href || null;
+                          break;
+                        default:
+                          data = targetElement.innerText?.trim() || null;
+                      }
+                      if (data) {
+                        extractedData = data;
+                        usedSelector = selector;
+                        break;
+                      }
+                    }
+                  }
+                } catch (e) {
+                  continue;
                 }
-                if (extractedData) {
-                  results.push({
-                    id: element.elementId,
-                    name: element.name,
-                    type: element.type,
-                    data: extractedData,
-                    selectorType: selector.type
-                  });
-                  break;
-                }
               }
-            }
-            if (!extractedData) {
               results.push({
                 id: element.elementId,
                 name: element.name,
                 type: element.type,
-                selector: null,
-                data: null,
-                error: "No data found"
+                data: extractedData,
+                selectorType: usedSelector?.type || "unknown",
+                error: extractedData ? null : "No data found with any strategy"
               });
-            }
-          });
+            });
+          } catch (error) {
+            return results;
+          }
           return results;
         };
-        const checkAndExtract = () => {
+        const checkForResults = function() {
           if (extractionComplete) {
-            clearInterval(intervalId);
             return;
           }
-          if (!extractionStarted) {
-            setTimeout(() => {
+          if (!ready) {
+            setTimeout(function() {
               if (!extractionComplete) {
-                extractionStarted = true;
+                ready = true;
               }
-            }, this.delayBeforeExtract * 1e3);
+            }, self2.delayBeforeExtract * 1e3);
             return;
           }
           chrome.scripting.executeScript({
             target: { tabId },
             func: extractData,
-            args: [this.elements]
-          }, (results) => {
-            if (extractionComplete)
+            args: [self2.elements]
+          }, function(results) {
+            if (extractionComplete) {
               return;
+            }
             if (chrome.runtime.lastError) {
               extractionComplete = true;
               clearInterval(intervalId);
@@ -590,66 +672,100 @@
               return;
             }
             if (results && results[0] && results[0].result) {
-              const extractedData = results[0].result;
-              const hasValidData = extractedData.some((item) => item.data !== null);
-              if (hasValidData) {
+              const result = results[0].result;
+              if (result && result.length > 0) {
+                const allHaveErrors = result.every(function(item) {
+                  return item.error != null;
+                });
+                if (!allHaveErrors) {
+                  extractionComplete = true;
+                  clearInterval(intervalId);
+                  resolve(result);
+                  cleanup();
+                } else {
+                  extractionComplete = true;
+                  clearInterval(intervalId);
+                  resolve(result);
+                  cleanup();
+                }
+              } else {
                 extractionComplete = true;
                 clearInterval(intervalId);
-                resolve(extractedData);
+                resolve([]);
                 cleanup();
               }
+            } else {
+              extractionComplete = true;
+              clearInterval(intervalId);
+              resolve([]);
+              cleanup();
             }
           });
         };
-        chrome.tabs.create({ url, active: false }, (tab) => {
+        chrome.tabs.create({ url, active: false }, function(tab) {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
             return;
           }
           tabId = tab.id;
-          this.activeTabs.add(tabId);
+          self2.activeTabs.add(tabId);
           chrome.tabs.onUpdated.addListener(function listener(updatedTabId, changeInfo) {
             if (updatedTabId === tabId && changeInfo.status === "complete") {
               chrome.tabs.onUpdated.removeListener(listener);
-              timeoutId = setTimeout(() => {
-                reject(new Error("Max wait time exceeded"));
-                cleanup();
-              }, this.maxWaitTime * 1e3);
-              intervalId = setInterval(checkAndExtract, 1e3);
+              timeoutId = setTimeout(function() {
+                if (!extractionComplete) {
+                  extractionComplete = true;
+                  reject(new Error("Max wait time exceeded"));
+                  cleanup();
+                }
+              }, self2.maxWaitTime * 1e3);
+              intervalId = setInterval(checkForResults, 1e3);
             }
           });
         });
       });
     }
-    // Cancel all processing
+    /**
+     * WebPeeler exact cancellation
+     */
     cancel() {
       this.cancelled = true;
       this.requestQueue = [];
-      this.activeTabs.forEach((tabId) => {
-        chrome.tabs.remove(tabId, () => {
+      const self2 = this;
+      this.activeTabs.forEach(function(tabId) {
+        chrome.tabs.remove(tabId, function() {
           if (chrome.runtime.lastError) {
           }
         });
       });
       this.activeTabs.clear();
-      this.requestStatus.forEach((status, url) => {
+      this.requestStatus.forEach(function(status, url) {
         if (status.status === "running" || status.status === "idle") {
-          this.requestStatus.set(url, {
+          self2.requestStatus.set(url, {
             status: "cancelled",
             outcome: "Processing was cancelled."
           });
         }
       });
     }
-    // Get status of all requests
+    /**
+     * WebPeeler exact status reporting
+     */
     getStatus() {
-      const statusArray = Array.from(this.requestStatus.entries()).map(([url, status]) => ({
-        url,
-        ...status
-      }));
+      const statusArray = [];
+      const self2 = this;
+      this.requestStatus.forEach(function(status, url) {
+        statusArray.push({
+          url,
+          status: status.status,
+          outcome: status.outcome
+        });
+      });
       return statusArray;
     }
-    // Get extraction outcomes
+    /**
+     * WebPeeler exact outcomes retrieval
+     */
     getOutcomes() {
       return this.outcomes;
     }
@@ -658,17 +774,19 @@
 
   // src/background/image-downloader.js
   var ImageDownloader = class {
-    // Download multiple images
+    /**
+     * WebPeeler exact image download implementation - function S
+     */
     static async downloadImages({ images, folder = "panda-images" }) {
       if (!images || images.length === 0) {
         return;
       }
-      const sanitizeFilename = (name) => {
+      const sanitizeFilename = function(name) {
         return name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
       };
-      const downloadBatch = (imageUrls) => {
+      const downloadBatch = function(imageUrls) {
         const timestamp = Date.now();
-        imageUrls.forEach((url, index) => {
+        imageUrls.forEach(function(url, index) {
           let extension = url.split(".").pop().split(/[#?]/)[0];
           if (!extension || extension.length > 5) {
             extension = "png";
@@ -679,31 +797,34 @@
             url,
             filename,
             saveAs: false
-          }, (downloadId) => {
+          }, function(downloadId) {
             if (chrome.runtime.lastError) {
-              console.error(`Error downloading ${url}:`, chrome.runtime.lastError);
             }
           });
         });
       };
-      const batchSize = 10;
-      const processBatches = async () => {
+      const processBatches = async function() {
+        const batchSize = 10;
         for (let i = 0; i < images.length; i += batchSize) {
           const batch = images.slice(i, i + batchSize);
           downloadBatch(batch);
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await new Promise(function(resolve) {
+            setTimeout(resolve, 500);
+          });
         }
       };
       await processBatches();
     }
-    // Download single image
+    /**
+     * Enhanced single image download (not in WebPeeler, but useful)
+     */
     static async downloadImage({ url, filename }) {
-      return new Promise((resolve, reject) => {
+      return new Promise(function(resolve, reject) {
         chrome.downloads.download({
           url,
           filename,
           saveAs: false
-        }, (downloadId) => {
+        }, function(downloadId) {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -712,11 +833,27 @@
         });
       });
     }
-    // Monitor download progress
+    /**
+     * WebPeeler-compatible single file download
+     */
+    static async downloadFile(data) {
+      return new Promise(function(resolve, reject) {
+        chrome.downloads.download(data, function(downloadId) {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(downloadId);
+          }
+        });
+      });
+    }
+    /**
+     * Enhanced download monitoring (improvement over WebPeeler)
+     */
     static monitorDownload(downloadId) {
-      return new Promise((resolve, reject) => {
-        const checkDownload = () => {
-          chrome.downloads.search({ id: downloadId }, (downloads) => {
+      return new Promise(function(resolve, reject) {
+        const checkDownload = function() {
+          chrome.downloads.search({ id: downloadId }, function(downloads) {
             if (downloads.length === 0) {
               reject(new Error("Download not found"));
               return;
@@ -734,25 +871,31 @@
         checkDownload();
       });
     }
-    // Get download history
+    /**
+     * Enhanced download history (improvement over WebPeeler)
+     */
     static async getDownloadHistory(query = {}) {
-      return new Promise((resolve) => {
-        chrome.downloads.search(query, (downloads) => {
+      return new Promise(function(resolve) {
+        chrome.downloads.search(query, function(downloads) {
           resolve(downloads);
         });
       });
     }
-    // Clear download history
+    /**
+     * Enhanced download history clearing (improvement over WebPeeler)
+     */
     static async clearDownloadHistory() {
       const downloads = await this.getDownloadHistory();
-      downloads.forEach((download) => {
+      downloads.forEach(function(download) {
         chrome.downloads.erase({ id: download.id });
       });
     }
-    // Pause download
+    /**
+     * Enhanced download control methods (improvements over WebPeeler)
+     */
     static async pauseDownload(downloadId) {
-      return new Promise((resolve, reject) => {
-        chrome.downloads.pause(downloadId, () => {
+      return new Promise(function(resolve, reject) {
+        chrome.downloads.pause(downloadId, function() {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -761,10 +904,9 @@
         });
       });
     }
-    // Resume download
     static async resumeDownload(downloadId) {
-      return new Promise((resolve, reject) => {
-        chrome.downloads.resume(downloadId, () => {
+      return new Promise(function(resolve, reject) {
+        chrome.downloads.resume(downloadId, function() {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -773,10 +915,9 @@
         });
       });
     }
-    // Cancel download
     static async cancelDownload(downloadId) {
-      return new Promise((resolve, reject) => {
-        chrome.downloads.cancel(downloadId, () => {
+      return new Promise(function(resolve, reject) {
+        chrome.downloads.cancel(downloadId, function() {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -785,10 +926,9 @@
         });
       });
     }
-    // Open downloaded file
     static async openDownload(downloadId) {
-      return new Promise((resolve, reject) => {
-        chrome.downloads.open(downloadId, () => {
+      return new Promise(function(resolve, reject) {
+        chrome.downloads.open(downloadId, function() {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -797,14 +937,12 @@
         });
       });
     }
-    // Show download in folder
     static showDownloadInFolder(downloadId) {
       chrome.downloads.show(downloadId);
     }
-    // Accept danger and download
     static async acceptDanger(downloadId) {
-      return new Promise((resolve, reject) => {
-        chrome.downloads.acceptDanger(downloadId, () => {
+      return new Promise(function(resolve, reject) {
+        chrome.downloads.acceptDanger(downloadId, function() {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -1156,70 +1294,39 @@
     try {
       const { urls } = request.data || {};
       if (!urls || urls.length === 0) {
-        sendResponse({ success: false, error: "No URLs provided" });
-        return;
+        throw new Error("No URLs provided");
       }
-      const fullUrls = await storage_manager_default.retrieve("pageDetailsUrls") || urls;
-      await storage_manager_default.save("pageDetailsUrls", fullUrls);
+      console.log("[Background] Storing requesting tab ID:", sender.tab.id);
       await storage_manager_default.save("pageDetailsRequestingTabId", sender.tab.id);
-      await storage_manager_default.save("pageDetailsMode", true);
+      const url = urls[0];
+      console.log("[Background] Creating new tab for URL:", url);
       const newTab = await chrome.tabs.create({
-        url: urls[0],
+        url,
         active: true
       });
-      const timeout = new Promise(
-        (_, reject) => setTimeout(() => reject(new Error("Timeout waiting for page to load")), 3e4)
-      );
-      try {
-        await Promise.race([
-          new Promise((resolve) => {
-            const listener = (tabId, changeInfo) => {
-              if (tabId === newTab.id && changeInfo.status === "complete") {
-                chrome.tabs.onUpdated.removeListener(listener);
-                resolve();
-              }
-            };
-            chrome.tabs.onUpdated.addListener(listener);
-          }),
-          timeout
-        ]);
-      } catch (timeoutError) {
-        console.error("[Background] Timeout waiting for page to load");
-        await chrome.tabs.remove(newTab.id).catch(() => {
-        });
-        sendResponse({ success: false, error: "Page load timeout" });
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1e3));
-      try {
-        await chrome.tabs.get(newTab.id);
-      } catch (error) {
-        console.error("[Background] Tab was closed");
-        sendResponse({ success: false, error: "Tab was closed" });
-        return;
-      }
-      try {
-        await chrome.scripting.insertCSS({
-          target: { tabId: newTab.id },
-          files: ["bundle/layers.css", "bundle/styles.css"]
-        });
-      } catch (cssError) {
-        console.error("[Background] CSS injection error:", cssError);
-      }
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: newTab.id },
-          files: ["bundle/selector.bundle.js"]
-        });
-        console.log("[Background] Selector script injected successfully");
-      } catch (scriptError) {
-        console.error("[Background] Script injection error:", scriptError);
-        await chrome.tabs.remove(newTab.id).catch(() => {
-        });
-        sendResponse({ success: false, error: "Failed to inject selector script" });
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      console.log("[Background] Created new tab:", newTab.id);
+      const tabLoadPromise = new Promise((resolve, reject) => {
+        let timeoutId;
+        const listener = (tabId, changeInfo) => {
+          if (tabId === newTab.id && changeInfo.status === "complete") {
+            console.log("[Background] Tab loaded, injecting selector");
+            chrome.tabs.onUpdated.removeListener(listener);
+            clearTimeout(timeoutId);
+            resolve();
+          }
+        };
+        chrome.tabs.onUpdated.addListener(listener);
+        timeoutId = setTimeout(() => {
+          chrome.tabs.onUpdated.removeListener(listener);
+          reject(new Error("Tab load timeout"));
+        }, 3e4);
+      });
+      await tabLoadPromise;
+      await chrome.scripting.executeScript({
+        target: { tabId: newTab.id },
+        files: ["bundle/selector.bundle.js"]
+      });
+      console.log("[Background] Selector script injected successfully");
       sendResponse({ success: true });
     } catch (error) {
       console.error("[Background] Page details highlight error:", error);
@@ -1228,22 +1335,36 @@
   }
   async function handlePageDetailsSelected(request, sender, sendResponse) {
     console.log("[Background] Page details element selected:", request);
+    console.log("[Background] Request data:", request.data);
+    console.log("[Background] Selectors received:", request.data?.selectors);
     try {
-      await storage_manager_default.save("pageDetailsElements", request.data?.selectors || []);
+      const selectors = request.data?.selectors || [];
+      console.log("[Background] Storing selectors:", selectors);
+      await storage_manager_default.save("pageDetailsElements", selectors);
       const requestingTabId = await storage_manager_default.retrieve("pageDetailsRequestingTabId");
+      console.log("[Background] Retrieved requesting tab ID:", requestingTabId);
       if (requestingTabId) {
+        console.log("[Background] Sending selectors back to requesting tab:", requestingTabId);
+        console.log("[Background] Sending data:", request.data);
         chrome.tabs.sendMessage(requestingTabId, {
           action: "page-details-selected-complete",
           data: request.data
         }, (response) => {
           if (chrome.runtime.lastError) {
             console.error("[Background] Failed to send elements to requesting tab:", chrome.runtime.lastError);
+          } else {
+            console.log("[Background] Successfully sent elements to requesting tab");
           }
         });
+      } else {
+        console.error("[Background] No requesting tab ID found");
       }
+      console.log("[Background] Closing selector tab:", sender.tab.id);
       chrome.tabs.remove(sender.tab.id, () => {
         if (chrome.runtime.lastError) {
           console.error("[Background] Failed to close selector tab:", chrome.runtime.lastError);
+        } else {
+          console.log("[Background] Successfully closed selector tab");
         }
       });
       sendResponse({ success: true });
@@ -1254,8 +1375,22 @@
   }
   async function handlePageDetailsExtract(request, sender, sendResponse) {
     console.log("[Background] Page details extract request:", request);
+    console.log("[Background] Request data:", request.data);
     try {
-      const { urls, elements, config } = request;
+      const { urls, elements, parallelTabs, maxWaitTime, delayBeforeExtract } = request.data || {};
+      console.log("[Background] URLs to extract from:", urls);
+      console.log("[Background] Elements/selectors for extraction:", elements);
+      console.log("[Background] Config - parallelTabs:", parallelTabs, "maxWaitTime:", maxWaitTime, "delayBeforeExtract:", delayBeforeExtract);
+      const config = { parallelTabs, maxWaitTime, delayBeforeExtract };
+      if (!elements || elements.length === 0) {
+        console.error("[Background] No elements provided for extraction");
+        sendResponse({ success: false, error: "No elements selected for extraction" });
+        return;
+      }
+      console.log("[Background] Creating extraction processor with:");
+      console.log("[Background] - URLs:", urls);
+      console.log("[Background] - Elements:", elements);
+      console.log("[Background] - Config:", config);
       const processor = new extraction_processor_default({
         request: {
           urls,
@@ -1268,6 +1403,42 @@
       activeExtractions.set("page-details", processor);
       processor.initialize();
       let responseSent = false;
+      processor.onComplete = (results) => {
+        console.log("[Background] Extraction completed");
+        console.log("[Background] Raw extraction results:", results);
+        console.log("[Background] Results length:", results?.length);
+        console.log("[Background] Results detail:", JSON.stringify(results, null, 2));
+        if (!responseSent) {
+          responseSent = true;
+          const formattedResults = results?.map((urlResult, index) => {
+            console.log("[Background] Processing result for URL:", urls[index]);
+            console.log("[Background] URL result data:", urlResult);
+            if (!urlResult || !urlResult.data || urlResult.data.length === 0) {
+              console.warn("[Background] No data extracted for URL:", urls[index]);
+              return {
+                url: urls[index],
+                data: {},
+                error: "No data extracted"
+              };
+            }
+            const resultData = { url: urls[index] };
+            urlResult.data.forEach((item) => {
+              if (item.data !== null && item.data !== void 0) {
+                resultData[item.name || `field_${item.id}`] = item.data;
+              }
+            });
+            console.log("[Background] Formatted result data:", resultData);
+            return resultData;
+          }) || [];
+          console.log("[Background] Final formatted results:", formattedResults);
+          console.log("[Background] Sending success response with results");
+          sendResponse({
+            success: true,
+            results: formattedResults
+          });
+        }
+        activeExtractions.delete("page-details");
+      };
       const statusInterval = setInterval(() => {
         if (responseSent) {
           clearInterval(statusInterval);
